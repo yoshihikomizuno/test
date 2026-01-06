@@ -27,7 +27,6 @@
           sendResponse({ success: false, error: 'Already capturing' });
         } else {
           sendResponse({ success: true });
-          // Start capture asynchronously
           setTimeout(() => startCapture(message.settings), 0);
         }
         break;
@@ -52,36 +51,17 @@
     let title = '';
     let totalPages = null;
 
-    // Method 1: Document title
+    // Get title from document
     const docTitle = document.title;
     if (docTitle) {
       title = docTitle
-        .replace(' - Kindle Cloud Reader', '')
-        .replace(' - Amazon Kindle', '')
-        .replace('Kindle Cloud Reader', '')
+        .replace(/\s*[-–—]\s*Kindle.*$/i, '')
+        .replace(/Kindle Cloud Reader/i, '')
         .trim();
     }
 
-    // Method 2: Look for title elements
-    const titleSelectors = [
-      '.book-title',
-      '[data-testid="book-title"]',
-      '.title-text',
-      '#book-title',
-      'h1.title',
-      '[class*="bookTitle"]'
-    ];
-
-    for (const selector of titleSelectors) {
-      const el = document.querySelector(selector);
-      if (el && el.textContent && el.textContent.trim()) {
-        title = el.textContent.trim();
-        break;
-      }
-    }
-
-    // Try to get total pages
-    const pageInfo = getPageInfo();
+    // Try to get total pages from page indicator
+    const pageInfo = getCurrentPageInfo();
     if (pageInfo.total) {
       totalPages = pageInfo.total;
     }
@@ -90,66 +70,33 @@
     return { title, totalPages };
   }
 
-  function getPageInfo() {
+  function getCurrentPageInfo() {
     let current = null;
     let total = null;
 
-    // Method 1: Look for page display elements
-    const pageSelectors = [
-      '.page-number',
-      '.pageNumber',
-      '[data-testid="page-number"]',
-      '.location-display',
-      '#page-display',
-      '.reader-page-number',
-      '[class*="pageNum"]',
-      '[class*="location"]'
-    ];
+    // Look for page indicator like "1 / 6" or "Location 1 of 843"
+    const allElements = document.querySelectorAll('*');
+    for (const el of allElements) {
+      if (el.children.length === 0 || el.tagName === 'INPUT') {
+        const text = el.textContent || el.value || '';
 
-    for (const selector of pageSelectors) {
-      const el = document.querySelector(selector);
-      if (el && el.textContent) {
-        const match = el.textContent.match(/(\d+)\s*[/／]\s*(\d+)/);
-        if (match) {
-          current = parseInt(match[1]);
-          total = parseInt(match[2]);
-          break;
-        }
-        const singleMatch = el.textContent.match(/(\d+)/);
-        if (singleMatch) {
-          current = parseInt(singleMatch[1]);
+        // Match patterns like "1 / 6", "1/6", "1 of 6"
+        const pageMatch = text.match(/^\s*(\d+)\s*[/／of]\s*(\d+)\s*$/i);
+        if (pageMatch) {
+          current = parseInt(pageMatch[1]);
+          total = parseInt(pageMatch[2]);
+          console.log('Found page info:', current, '/', total);
+          return { current, total };
         }
       }
     }
 
-    // Method 2: Look in progress bar or slider
-    const progressBar = document.querySelector('input[type="range"]') ||
-                        document.querySelector('.progress-slider') ||
-                        document.querySelector('[role="slider"]');
-    if (progressBar) {
-      const max = progressBar.getAttribute('max') || progressBar.getAttribute('aria-valuemax');
-      if (max) {
-        total = parseInt(max);
-      }
-      const value = progressBar.value || progressBar.getAttribute('aria-valuenow');
-      if (value) {
-        current = parseInt(value);
-      }
-    }
-
-    // Method 3: Look for location/page text anywhere in visible text
-    if (!total) {
-      const elements = document.querySelectorAll('*');
-      for (const el of elements) {
-        if (el.children.length === 0 && el.textContent) {
-          const text = el.textContent.trim();
-          const pageMatch = text.match(/(?:ページ|page|Page|loc)[:\s]*(\d+)\s*[/／of]\s*(\d+)/i);
-          if (pageMatch) {
-            current = parseInt(pageMatch[1]);
-            total = parseInt(pageMatch[2]);
-            break;
-          }
-        }
+    // Try input fields
+    const inputs = document.querySelectorAll('input');
+    for (const input of inputs) {
+      const val = input.value;
+      if (val && /^\d+$/.test(val)) {
+        current = parseInt(val);
       }
     }
 
@@ -176,18 +123,20 @@
     const totalPages = endPage - startPage + 1;
 
     console.log(`Capturing pages ${startPage} to ${endPage} (${totalPages} pages)`);
-    console.log(`Book title: ${bookTitle}`);
 
     try {
-      // Navigate to start page if not page 1
+      // Navigate to start page first
       if (startPage > 1) {
+        console.log('Navigating to start page:', startPage);
         await navigateToPage(startPage);
-        await waitForPageLoad();
+        await sleep(300);
       }
 
+      let capturedCount = 0;
+
       for (let i = 0; i < totalPages && !shouldStop; i++) {
-        const currentPage = startPage + i;
-        console.log(`Capturing page ${currentPage} (${i + 1}/${totalPages})`);
+        const targetPage = startPage + i;
+        console.log(`Capturing page ${targetPage} (${i + 1}/${totalPages})`);
 
         // Send progress update
         chrome.runtime.sendMessage({
@@ -196,14 +145,15 @@
           total: totalPages
         });
 
-        // Wait for page content to be fully rendered
-        await waitForPageLoad();
+        // Small wait for rendering
+        await sleep(200);
 
-        // Take screenshot via background script
+        // Take screenshot
         try {
           const screenshot = await captureScreenshot();
           if (screenshot) {
             screenshots.push(screenshot);
+            capturedCount++;
             chrome.runtime.sendMessage({
               type: 'screenshotCaptured',
               data: screenshot
@@ -215,10 +165,17 @@
 
         // Navigate to next page if not the last one
         if (i < totalPages - 1 && !shouldStop) {
-          await goToNextPage();
-          await waitForPageLoad();
+          console.log('Going to next page...');
+          const success = await goToNextPage();
+          if (!success) {
+            console.log('Page navigation may have failed, continuing anyway');
+          }
+          // Wait for page transition
+          await sleep(250);
         }
       }
+
+      console.log(`Capture finished. Total captured: ${capturedCount}`);
 
       if (shouldStop) {
         chrome.runtime.sendMessage({
@@ -242,7 +199,6 @@
       });
     } finally {
       isCapturing = false;
-      console.log('Capture finished');
     }
   }
 
@@ -251,275 +207,263 @@
     shouldStop = true;
   }
 
-  async function waitForPageLoad() {
-    const loadingSelectors = [
-      '.loading',
-      '.spinner',
-      '[data-loading="true"]',
-      '.page-loading',
-      '[class*="loading"]',
-      '[class*="spinner"]'
-    ];
-
-    // Initial wait
-    await sleep(400);
-
-    // Check for loading indicators
-    for (let attempt = 0; attempt < 30; attempt++) {
-      let isLoading = false;
-      for (const selector of loadingSelectors) {
-        const el = document.querySelector(selector);
-        if (el && el.offsetParent !== null && getComputedStyle(el).display !== 'none') {
-          isLoading = true;
-          break;
-        }
-      }
-
-      if (!isLoading) {
-        break;
-      }
-      await sleep(100);
-    }
-
-    // Additional wait for content to render
-    await sleep(600);
-  }
-
   async function navigateToPage(pageNumber) {
     console.log(`Navigating to page ${pageNumber}`);
 
-    // Method 1: Try to use page input
-    const pageInput = findPageInput();
-    if (pageInput) {
+    // Get current page
+    const currentInfo = getCurrentPageInfo();
+    if (currentInfo.current === pageNumber) {
+      console.log('Already on target page');
+      return;
+    }
+
+    // Method 1: Find and use page input
+    const pageInput = document.querySelector('input[type="text"]');
+    if (pageInput && pageInput.offsetParent !== null) {
       try {
         pageInput.focus();
         pageInput.select();
-        document.execCommand('selectAll', false, null);
-        document.execCommand('insertText', false, pageNumber.toString());
 
+        // Clear and set new value
+        pageInput.value = pageNumber.toString();
         pageInput.dispatchEvent(new Event('input', { bubbles: true }));
         pageInput.dispatchEvent(new Event('change', { bubbles: true }));
 
-        // Try Enter key
-        const enterEvent = new KeyboardEvent('keydown', {
-          key: 'Enter',
-          code: 'Enter',
-          keyCode: 13,
-          which: 13,
-          bubbles: true
-        });
-        pageInput.dispatchEvent(enterEvent);
+        // Press Enter
+        pageInput.dispatchEvent(new KeyboardEvent('keydown', {
+          key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true
+        }));
+        pageInput.dispatchEvent(new KeyboardEvent('keyup', {
+          key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true
+        }));
 
-        await sleep(800);
+        await sleep(400);
         return;
       } catch (e) {
-        console.log('Page input method failed:', e);
+        console.log('Page input failed:', e);
       }
     }
 
-    // Method 2: Use slider if available
-    const slider = document.querySelector('input[type="range"]') ||
-                   document.querySelector('[role="slider"]');
-    if (slider) {
-      try {
-        const max = parseInt(slider.getAttribute('max') || slider.getAttribute('aria-valuemax') || 100);
-        const newValue = Math.min(pageNumber, max);
-
-        // Use native value setter
-        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-        nativeInputValueSetter.call(slider, newValue);
-
-        slider.dispatchEvent(new Event('input', { bubbles: true }));
-        slider.dispatchEvent(new Event('change', { bubbles: true }));
-        await sleep(800);
-        return;
-      } catch (e) {
-        console.log('Slider method failed:', e);
-      }
+    // Method 2: Navigate sequentially
+    // First go to page 1
+    for (let i = 0; i < 50 && !shouldStop; i++) {
+      await goToPrevPage();
+      await sleep(50);
+      const info = getCurrentPageInfo();
+      if (info.current === 1) break;
     }
 
-    // Method 3: Sequential navigation from current position
-    // Go to beginning first
-    await goToBeginning();
-    await sleep(800);
+    await sleep(200);
 
-    // Then navigate forward
+    // Then go forward to target page
     for (let i = 1; i < pageNumber && !shouldStop; i++) {
       await goToNextPage();
-      await sleep(300);
+      await sleep(100);
     }
-  }
-
-  function findPageInput() {
-    const selectors = [
-      'input[type="text"][aria-label*="ページ"]',
-      'input[type="text"][aria-label*="page"]',
-      'input[type="number"][aria-label*="ページ"]',
-      'input[type="number"][aria-label*="page"]',
-      'input[type="text"][aria-label*="location"]',
-      '.pageNumberInput',
-      '[data-testid="page-input"]',
-      'input.page-input',
-      '#page-input',
-      'input[class*="page"]',
-      'input[class*="location"]'
-    ];
-
-    for (const selector of selectors) {
-      const el = document.querySelector(selector);
-      if (el) return el;
-    }
-    return null;
-  }
-
-  async function goToBeginning() {
-    // Try Ctrl+Home keyboard shortcut
-    dispatchKeyEvent('Home', 36, true);
-    await sleep(500);
   }
 
   async function goToNextPage() {
-    // Method 1: Try clicking next button
-    const nextButton = findNextPageButton();
+    // Try multiple methods in parallel for speed
+
+    // Method 1: Find and click the right arrow/next button
+    const nextButton = findNextButton();
     if (nextButton) {
-      try {
-        nextButton.click();
-        await sleep(150);
-        return true;
-      } catch (e) {
-        console.log('Next button click failed:', e);
-      }
+      console.log('Clicking next button');
+      nextButton.click();
+      return true;
     }
 
-    // Method 2: Keyboard navigation (right arrow)
-    dispatchKeyEvent('ArrowRight', 39);
-    await sleep(150);
+    // Method 2: Simulate keyboard Right Arrow
+    console.log('Using keyboard navigation');
+    simulateKeyPress('ArrowRight', 39);
 
-    // Method 3: Also try clicking on right side of reader
-    await clickRightSide();
+    // Method 3: Click on right side of the reader
+    clickOnRightSide();
 
     return true;
   }
 
-  function dispatchKeyEvent(key, keyCode, ctrlKey = false) {
+  async function goToPrevPage() {
+    // Find and click the left arrow/prev button
+    const prevButton = findPrevButton();
+    if (prevButton) {
+      prevButton.click();
+      return true;
+    }
+
+    // Keyboard Left Arrow
+    simulateKeyPress('ArrowLeft', 37);
+    return true;
+  }
+
+  function findNextButton() {
+    // Look for right arrow or next page button
+    // Based on the screenshot, there should be a ">" or right arrow on the right side
+
+    const selectors = [
+      // SVG icons or buttons with right/next indication
+      'button[aria-label*="next" i]',
+      'button[aria-label*="Next" i]',
+      'button[aria-label*="右" i]',
+      'button[aria-label*="次" i]',
+      '[role="button"][aria-label*="next" i]',
+      '[role="button"][aria-label*="Next" i]',
+      // Common class names
+      '.reader-nav-right',
+      '.nav-right',
+      '.next-page',
+      '.page-next',
+      '[class*="right"][class*="nav"]',
+      '[class*="Right"][class*="Nav"]',
+      '[class*="next"]',
+      '[class*="Next"]',
+      // Icon buttons
+      'button svg',
+      '[role="button"] svg'
+    ];
+
+    // First try specific selectors
+    for (const selector of selectors) {
+      try {
+        const elements = document.querySelectorAll(selector);
+        for (const el of elements) {
+          // Check if it's on the right side of the screen
+          const rect = el.getBoundingClientRect();
+          if (rect.right > window.innerWidth * 0.6 && rect.width > 0 && rect.height > 0) {
+            if (el.offsetParent !== null) {
+              console.log('Found next button:', selector);
+              return el.closest('button') || el;
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    // Look for clickable elements on the right side of the page
+    const rightSideElements = document.querySelectorAll('button, [role="button"], [onclick], a');
+    for (const el of rightSideElements) {
+      const rect = el.getBoundingClientRect();
+      // Check if element is on the right side and vertically centered
+      if (rect.left > window.innerWidth * 0.7 &&
+          rect.top > window.innerHeight * 0.2 &&
+          rect.bottom < window.innerHeight * 0.8 &&
+          rect.width > 0 && rect.width < 200) {
+        if (el.offsetParent !== null) {
+          console.log('Found right-side clickable element');
+          return el;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  function findPrevButton() {
+    const selectors = [
+      'button[aria-label*="prev" i]',
+      'button[aria-label*="Prev" i]',
+      'button[aria-label*="左" i]',
+      'button[aria-label*="前" i]',
+      '[role="button"][aria-label*="prev" i]',
+      '.reader-nav-left',
+      '.nav-left',
+      '.prev-page',
+      '.page-prev',
+      '[class*="left"][class*="nav"]',
+      '[class*="prev"]'
+    ];
+
+    for (const selector of selectors) {
+      try {
+        const elements = document.querySelectorAll(selector);
+        for (const el of elements) {
+          const rect = el.getBoundingClientRect();
+          if (rect.left < window.innerWidth * 0.4 && rect.width > 0) {
+            if (el.offsetParent !== null) {
+              return el.closest('button') || el;
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    // Look for clickable elements on the left side
+    const leftSideElements = document.querySelectorAll('button, [role="button"]');
+    for (const el of leftSideElements) {
+      const rect = el.getBoundingClientRect();
+      if (rect.right < window.innerWidth * 0.3 &&
+          rect.top > window.innerHeight * 0.2 &&
+          rect.bottom < window.innerHeight * 0.8 &&
+          rect.width > 0 && rect.width < 200) {
+        if (el.offsetParent !== null) {
+          return el;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  function simulateKeyPress(key, keyCode) {
     const eventOptions = {
       key: key,
       code: key,
       keyCode: keyCode,
       which: keyCode,
-      ctrlKey: ctrlKey,
       bubbles: true,
       cancelable: true,
       view: window
     };
 
-    // Dispatch to multiple targets
+    // Try dispatching to various targets
     const targets = [
       document.activeElement,
-      document.querySelector('#kindle-reader'),
-      document.querySelector('[data-testid="reader"]'),
-      document.querySelector('.reader-container'),
-      document.querySelector('#reader'),
-      document.querySelector('iframe'),
       document.body,
-      document.documentElement
+      document.documentElement,
+      document.querySelector('[tabindex]'),
+      document.querySelector('main'),
+      document.querySelector('[role="main"]'),
+      document.querySelector('[class*="reader"]'),
+      document.querySelector('[class*="Reader"]')
     ].filter(Boolean);
 
+    // Dispatch to document first
+    document.dispatchEvent(new KeyboardEvent('keydown', eventOptions));
+    document.dispatchEvent(new KeyboardEvent('keyup', eventOptions));
+
+    // Then to other targets
     for (const target of targets) {
       try {
         target.dispatchEvent(new KeyboardEvent('keydown', eventOptions));
-        target.dispatchEvent(new KeyboardEvent('keypress', eventOptions));
         target.dispatchEvent(new KeyboardEvent('keyup', eventOptions));
-      } catch (e) {
-        // Ignore errors
-      }
+      } catch (e) {}
     }
 
-    // Also try on window
+    // Also try window
     window.dispatchEvent(new KeyboardEvent('keydown', eventOptions));
     window.dispatchEvent(new KeyboardEvent('keyup', eventOptions));
   }
 
-  function findNextPageButton() {
-    const selectors = [
-      '[aria-label="次のページ"]',
-      '[aria-label="Next page"]',
-      '[aria-label="next page"]',
-      '[aria-label*="次"]',
-      '[aria-label*="next"]',
-      '[aria-label*="Next"]',
-      '[data-testid="next-page"]',
-      '.next-page-button',
-      '.page-next',
-      '#next-page',
-      '.reader-controls-right',
-      '.page-turner-right',
-      'button[class*="next"]',
-      'button[class*="Next"]',
-      '[class*="right"][class*="page"]',
-      '[class*="pageRight"]',
-      '[class*="rightPage"]'
-    ];
+  function clickOnRightSide() {
+    // Click on the right third of the screen (common reader navigation)
+    const x = window.innerWidth * 0.85;
+    const y = window.innerHeight * 0.5;
 
-    for (const selector of selectors) {
-      try {
-        const element = document.querySelector(selector);
-        if (element && element.offsetParent !== null) {
-          return element;
-        }
-      } catch (e) {
-        // Ignore selector errors
-      }
-    }
-
-    return null;
-  }
-
-  async function clickRightSide() {
-    const readerSelectors = [
-      '#kindle-reader',
-      '[data-testid="reader"]',
-      '.reader-container',
-      '#reader',
-      '.kg-full-page-view',
-      '[class*="reader"]',
-      '[class*="Reader"]',
-      'main',
-      '#main-content'
-    ];
-
-    let readerArea = null;
-    for (const selector of readerSelectors) {
-      try {
-        const el = document.querySelector(selector);
-        if (el && el.offsetParent !== null) {
-          readerArea = el;
-          break;
-        }
-      } catch (e) {
-        // Ignore
-      }
-    }
-
-    if (!readerArea) {
-      readerArea = document.body;
-    }
-
-    const rect = readerArea.getBoundingClientRect();
-    const x = rect.right - 100;
-    const y = rect.top + rect.height / 2;
-
-    const eventOptions = {
+    const clickEvent = new MouseEvent('click', {
       bubbles: true,
       cancelable: true,
       clientX: x,
       clientY: y,
       view: window
-    };
+    });
 
-    readerArea.dispatchEvent(new MouseEvent('mousedown', eventOptions));
-    readerArea.dispatchEvent(new MouseEvent('mouseup', eventOptions));
-    readerArea.dispatchEvent(new MouseEvent('click', eventOptions));
+    // Find the element at that position and click it
+    const element = document.elementFromPoint(x, y);
+    if (element) {
+      console.log('Clicking on right side element:', element.tagName);
+      element.dispatchEvent(clickEvent);
+      element.click();
+    }
   }
 
   async function captureScreenshot() {
@@ -528,7 +472,6 @@
         { action: 'captureTab', quality: settings.quality },
         (response) => {
           if (chrome.runtime.lastError) {
-            console.error('Screenshot error:', chrome.runtime.lastError);
             reject(chrome.runtime.lastError);
           } else if (response && response.success) {
             resolve(response.dataUrl);
@@ -544,7 +487,6 @@
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // Notify that content script is loaded
   console.log('Kindle Auto Screenshot content script loaded and ready');
 
 })();
