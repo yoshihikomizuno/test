@@ -14,11 +14,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         console.error('Capture error:', error);
         sendResponse({ success: false, error: error.message });
       });
-    return true; // Keep channel open for async response
+    return true;
   }
 
   if (message.action === 'generatePDF') {
-    generatePDF(message.screenshots)
+    generatePDF(message.screenshots, message.bookTitle)
       .then(() => {
         sendResponse({ success: true });
       })
@@ -26,7 +26,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         console.error('PDF generation error:', error);
         sendResponse({ success: false, error: error.message });
       });
-    return true; // Keep channel open for async response
+    return true;
+  }
+
+  if (message.action === 'estimatePDFSize') {
+    const size = estimatePDFSize(message.screenshots);
+    sendResponse({ success: true, size });
+    return false;
   }
 });
 
@@ -65,7 +71,22 @@ async function captureTab(quality) {
   });
 }
 
-async function generatePDF(screenshots) {
+function estimatePDFSize(screenshots) {
+  if (!screenshots || screenshots.length === 0) return 0;
+
+  // Calculate total size of base64 data
+  let totalSize = 0;
+  for (const screenshot of screenshots) {
+    // Base64 is about 4/3 of binary size, and data URL has header
+    const base64Part = screenshot.split(',')[1] || '';
+    totalSize += (base64Part.length * 3) / 4;
+  }
+
+  // PDF overhead is roughly 10-15% additional
+  return Math.round(totalSize * 1.12);
+}
+
+async function generatePDF(screenshots, bookTitle) {
   if (!screenshots || screenshots.length === 0) {
     throw new Error('No screenshots to convert');
   }
@@ -76,8 +97,7 @@ async function generatePDF(screenshots) {
   const imgHeight = firstImage.height;
 
   // Calculate PDF dimensions (in mm)
-  // A4 is 210 x 297 mm, but we'll use custom size based on image aspect ratio
-  const pdfWidth = 210; // mm
+  const pdfWidth = 210;
   const pdfHeight = (imgHeight / imgWidth) * pdfWidth;
 
   // Create PDF with custom page size
@@ -88,50 +108,43 @@ async function generatePDF(screenshots) {
     format: [pdfWidth, pdfHeight]
   });
 
+  // Set PDF metadata for thumbnail support
+  pdf.setProperties({
+    title: bookTitle || 'Kindle Screenshot',
+    creator: 'Kindle Auto Screenshot Extension'
+  });
+
   for (let i = 0; i < screenshots.length; i++) {
     if (i > 0) {
       pdf.addPage([pdfWidth, pdfHeight]);
     }
 
-    // Add image to PDF
     const imgData = screenshots[i];
     pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
   }
 
-  // Generate PDF blob
-  const pdfBlob = pdf.output('blob');
+  // Generate PDF as base64 data URL (Service Worker compatible)
+  const pdfDataUri = pdf.output('datauristring');
 
-  // Create download
+  // Create filename
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const filename = `kindle-screenshot-${timestamp}.pdf`;
+  const safeTitle = bookTitle ? bookTitle.replace(/[<>:"/\\|?*]/g, '_').slice(0, 50) : 'kindle-screenshot';
+  const filename = `${safeTitle}-${timestamp}.pdf`;
 
-  // Use chrome.downloads API to save the file
-  const url = URL.createObjectURL(pdfBlob);
-
-  try {
-    await chrome.downloads.download({
-      url: url,
-      filename: filename,
-      saveAs: true
-    });
-  } finally {
-    // Clean up the object URL after a delay
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
-  }
+  // Use chrome.downloads API with data URI
+  await chrome.downloads.download({
+    url: pdfDataUri,
+    filename: filename,
+    saveAs: true
+  });
 }
 
 function loadImage(dataUrl) {
-  return new Promise((resolve, reject) => {
-    // In service worker, we can't use Image() directly
-    // So we'll parse the data URL to get dimensions
-    // For JPEG, we need to parse the header
-
+  return new Promise((resolve) => {
     try {
-      // Extract base64 data
       const base64Data = dataUrl.split(',')[1];
       const binaryData = atob(base64Data);
 
-      // For JPEG, find dimensions in the header
       if (dataUrl.includes('image/jpeg')) {
         const dimensions = getJpegDimensions(binaryData);
         resolve(dimensions);
@@ -139,30 +152,25 @@ function loadImage(dataUrl) {
         const dimensions = getPngDimensions(binaryData);
         resolve(dimensions);
       } else {
-        // Default dimensions if we can't parse
         resolve({ width: 1920, height: 1080 });
       }
     } catch (error) {
       console.error('Error parsing image:', error);
-      // Return default dimensions on error
       resolve({ width: 1920, height: 1080 });
     }
   });
 }
 
 function getJpegDimensions(binaryData) {
-  // JPEG dimensions are in SOF0 marker (0xFF 0xC0)
   let i = 0;
   while (i < binaryData.length - 1) {
     if (binaryData.charCodeAt(i) === 0xFF) {
       const marker = binaryData.charCodeAt(i + 1);
-      // SOF0, SOF1, SOF2 markers
       if (marker >= 0xC0 && marker <= 0xC2) {
         const height = (binaryData.charCodeAt(i + 5) << 8) + binaryData.charCodeAt(i + 6);
         const width = (binaryData.charCodeAt(i + 7) << 8) + binaryData.charCodeAt(i + 8);
         return { width, height };
       }
-      // Skip to next marker
       if (marker === 0xD8 || marker === 0xD9) {
         i += 2;
       } else {
@@ -177,7 +185,6 @@ function getJpegDimensions(binaryData) {
 }
 
 function getPngDimensions(binaryData) {
-  // PNG dimensions are at byte 16-23 in the IHDR chunk
   const width = (binaryData.charCodeAt(16) << 24) +
                 (binaryData.charCodeAt(17) << 16) +
                 (binaryData.charCodeAt(18) << 8) +

@@ -14,6 +14,10 @@
       <div id="status" class="status">準備完了</div>
     </div>
 
+    <div id="book-info" class="book-info" style="display: none;">
+      <span id="bookTitle"></span>
+    </div>
+
     <div class="settings">
       <div class="setting-item">
         <label for="startPage">開始ページ:</label>
@@ -22,17 +26,20 @@
 
       <div class="setting-item">
         <label for="endPage">終了ページ:</label>
-        <input type="number" id="endPage" value="10" min="1">
+        <div class="end-page-group">
+          <input type="number" id="endPage" value="10" min="1">
+          <button id="allPagesBtn" class="btn btn-small" title="全ページを指定">全て</button>
+        </div>
       </div>
 
       <div class="setting-item">
-        <label for="delay">ページ間の待機時間 (ms):</label>
-        <input type="number" id="delay" value="1000" min="500" step="100">
-      </div>
-
-      <div class="setting-item">
-        <label for="quality">画像品質 (0.1-1.0):</label>
-        <input type="number" id="quality" value="0.92" min="0.1" max="1.0" step="0.01">
+        <label for="quality">画像品質:</label>
+        <select id="quality">
+          <option value="0.6">低 (ファイル小)</option>
+          <option value="0.8">中</option>
+          <option value="0.92" selected>高 (推奨)</option>
+          <option value="1.0">最高</option>
+        </select>
       </div>
     </div>
 
@@ -48,12 +55,17 @@
       <button id="stopBtn" class="btn btn-danger" disabled>停止</button>
     </div>
 
+    <div id="file-size-container" class="file-size-container" style="display: none;">
+      <span>予測ファイルサイズ: </span>
+      <span id="estimatedSize">-</span>
+    </div>
+
     <div class="buttons">
       <button id="downloadBtn" class="btn btn-success" disabled>PDFダウンロード</button>
     </div>
 
     <div id="preview-container" style="display: none;">
-      <h3>プレビュー</h3>
+      <h3>プレビュー <span id="previewCount"></span></h3>
       <div id="preview"></div>
     </div>
 
