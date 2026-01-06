@@ -8,7 +8,7 @@ class PopupController {
     this.totalPages = 0;
     this.bookTitle = '';
     this.totalPageCount = null;
-    this.avgPageSizeBytes = 150000; // Average ~150KB per page estimate
+    this.avgPageSizeBytes = 150000;
 
     this.initElements();
     this.loadSettings();
@@ -24,6 +24,7 @@ class PopupController {
     this.startPageInput = document.getElementById('startPage');
     this.endPageInput = document.getElementById('endPage');
     this.qualitySelect = document.getElementById('quality');
+    this.readingDirectionRadios = document.querySelectorAll('input[name="readingDirection"]');
     this.statusEl = document.getElementById('status');
     this.progressContainer = document.getElementById('progressContainer');
     this.progressFill = document.getElementById('progressFill');
@@ -37,14 +38,24 @@ class PopupController {
     this.estimatedSizeEl = document.getElementById('estimatedSize');
   }
 
+  getReadingDirection() {
+    const checked = document.querySelector('input[name="readingDirection"]:checked');
+    return checked ? checked.value : 'vertical';
+  }
+
+  setReadingDirection(value) {
+    const radio = document.querySelector(`input[name="readingDirection"][value="${value}"]`);
+    if (radio) radio.checked = true;
+  }
+
   loadSettings() {
     chrome.storage.local.get(['settings'], (result) => {
       if (result.settings) {
         this.startPageInput.value = result.settings.startPage || 1;
         this.endPageInput.value = result.settings.endPage || 10;
         this.qualitySelect.value = result.settings.quality || 0.92;
+        this.setReadingDirection(result.settings.readingDirection || 'vertical');
       }
-      // Show initial size estimate
       this.updatePreEstimatedSize();
     });
 
@@ -63,7 +74,8 @@ class PopupController {
     const settings = {
       startPage: parseInt(this.startPageInput.value),
       endPage: parseInt(this.endPageInput.value),
-      quality: parseFloat(this.qualitySelect.value)
+      quality: parseFloat(this.qualitySelect.value),
+      readingDirection: this.getReadingDirection()
     };
     chrome.storage.local.set({ settings });
     this.updatePreEstimatedSize();
@@ -75,10 +87,13 @@ class PopupController {
     this.downloadBtn.addEventListener('click', () => this.downloadPDF());
     this.allPagesBtn.addEventListener('click', () => this.setAllPages());
 
-    // Update size estimate when inputs change
     [this.startPageInput, this.endPageInput, this.qualitySelect].forEach(input => {
       input.addEventListener('change', () => this.saveSettings());
       input.addEventListener('input', () => this.updatePreEstimatedSize());
+    });
+
+    this.readingDirectionRadios.forEach(radio => {
+      radio.addEventListener('change', () => this.saveSettings());
     });
 
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -165,19 +180,15 @@ class PopupController {
     }
   }
 
-  // Calculate pre-capture estimated size based on page count and quality
   updatePreEstimatedSize() {
     const startPage = parseInt(this.startPageInput.value) || 1;
     const endPage = parseInt(this.endPageInput.value) || 10;
     const quality = parseFloat(this.qualitySelect.value) || 0.92;
 
-    if (startPage > endPage) {
-      return;
-    }
+    if (startPage > endPage) return;
 
     const pageCount = endPage - startPage + 1;
-    // Estimate based on quality: higher quality = larger size
-    const qualityMultiplier = quality / 0.92; // normalize to default quality
+    const qualityMultiplier = quality / 0.92;
     const estimatedSize = Math.round(pageCount * this.avgPageSizeBytes * qualityMultiplier);
 
     this.estimatedSizeEl.textContent = `約 ${this.formatFileSize(estimatedSize)}`;
@@ -188,6 +199,7 @@ class PopupController {
     this.startPageInput.disabled = disabled;
     this.endPageInput.disabled = disabled;
     this.qualitySelect.disabled = disabled;
+    this.readingDirectionRadios.forEach(radio => radio.disabled = disabled);
   }
 
   async startCapture() {
@@ -196,6 +208,7 @@ class PopupController {
     const startPage = parseInt(this.startPageInput.value);
     const endPage = parseInt(this.endPageInput.value);
     const quality = parseFloat(this.qualitySelect.value);
+    const readingDirection = this.getReadingDirection();
 
     if (startPage > endPage) {
       this.setStatus('開始ページは終了ページ以下にしてください', 'error');
@@ -209,7 +222,6 @@ class PopupController {
 
     chrome.storage.local.remove(['screenshots', 'bookTitle']);
 
-    // Disable all controls
     this.startBtn.disabled = true;
     this.stopBtn.disabled = false;
     this.downloadBtn.disabled = true;
@@ -226,27 +238,24 @@ class PopupController {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-      // First, inject content script if not already there
       try {
         await chrome.scripting.executeScript({
           target: { tabId: tab.id },
           files: ['content.js']
         });
       } catch (e) {
-        // Script may already be injected, ignore error
         console.log('Script injection:', e.message);
       }
 
-      // Small delay to ensure script is ready
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Send message to content script
       chrome.tabs.sendMessage(tab.id, {
         action: 'startCapture',
         settings: {
           startPage,
           endPage,
-          quality
+          quality,
+          readingDirection
         }
       }, (response) => {
         if (chrome.runtime.lastError) {
@@ -374,7 +383,6 @@ class PopupController {
         this.estimatedSizeEl.textContent = sizeStr;
         this.fileSizeContainer.style.display = 'block';
 
-        // Update average page size for future estimates
         if (this.screenshots.length > 0) {
           this.avgPageSizeBytes = Math.round(sizeBytes / this.screenshots.length);
         }

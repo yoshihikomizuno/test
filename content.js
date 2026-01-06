@@ -263,42 +263,63 @@
   }
 
   async function goToNextPage() {
+    // Determine direction based on reading direction setting
+    // Vertical (縦書き): next page is on the LEFT
+    // Horizontal (横書き): next page is on the RIGHT
+    const isVertical = settings.readingDirection === 'vertical';
+
     // Try multiple methods in parallel for speed
 
-    // Method 1: Find and click the right arrow/next button
-    const nextButton = findNextButton();
+    // Method 1: Find and click the appropriate arrow/next button
+    const nextButton = isVertical ? findLeftButton() : findRightButton();
     if (nextButton) {
-      console.log('Clicking next button');
+      console.log('Clicking next button (direction:', settings.readingDirection, ')');
       nextButton.click();
       return true;
     }
 
-    // Method 2: Simulate keyboard Right Arrow
-    console.log('Using keyboard navigation');
-    simulateKeyPress('ArrowRight', 39);
+    // Method 2: Simulate keyboard arrow key
+    console.log('Using keyboard navigation (direction:', settings.readingDirection, ')');
+    if (isVertical) {
+      simulateKeyPress('ArrowLeft', 37);
+    } else {
+      simulateKeyPress('ArrowRight', 39);
+    }
 
-    // Method 3: Click on right side of the reader
-    clickOnRightSide();
+    // Method 3: Click on the appropriate side of the reader
+    if (isVertical) {
+      clickOnLeftSide();
+    } else {
+      clickOnRightSide();
+    }
 
     return true;
   }
 
   async function goToPrevPage() {
-    // Find and click the left arrow/prev button
-    const prevButton = findPrevButton();
+    // Determine direction based on reading direction setting
+    // Vertical (縦書き): prev page is on the RIGHT
+    // Horizontal (横書き): prev page is on the LEFT
+    const isVertical = settings.readingDirection === 'vertical';
+
+    // Find and click the appropriate arrow/prev button
+    const prevButton = isVertical ? findRightButton() : findLeftButton();
     if (prevButton) {
       prevButton.click();
       return true;
     }
 
-    // Keyboard Left Arrow
-    simulateKeyPress('ArrowLeft', 37);
+    // Keyboard arrow key (opposite of next)
+    if (isVertical) {
+      simulateKeyPress('ArrowRight', 39);
+    } else {
+      simulateKeyPress('ArrowLeft', 37);
+    }
     return true;
   }
 
-  function findNextButton() {
-    // Look for right arrow or next page button
-    // Based on the screenshot, there should be a ">" or right arrow on the right side
+  function findRightButton() {
+    // Look for right arrow or next page button on the right side
 
     const selectors = [
       // SVG icons or buttons with right/next indication
@@ -331,7 +352,7 @@
           const rect = el.getBoundingClientRect();
           if (rect.right > window.innerWidth * 0.6 && rect.width > 0 && rect.height > 0) {
             if (el.offsetParent !== null) {
-              console.log('Found next button:', selector);
+              console.log('Found right button:', selector);
               return el.closest('button') || el;
             }
           }
@@ -358,7 +379,9 @@
     return null;
   }
 
-  function findPrevButton() {
+  function findLeftButton() {
+    // Look for left arrow or prev page button on the left side
+
     const selectors = [
       'button[aria-label*="prev" i]',
       'button[aria-label*="Prev" i]',
@@ -380,6 +403,7 @@
           const rect = el.getBoundingClientRect();
           if (rect.left < window.innerWidth * 0.4 && rect.width > 0) {
             if (el.offsetParent !== null) {
+              console.log('Found left button:', selector);
               return el.closest('button') || el;
             }
           }
@@ -396,6 +420,7 @@
           rect.bottom < window.innerHeight * 0.8 &&
           rect.width > 0 && rect.width < 200) {
         if (el.offsetParent !== null) {
+          console.log('Found left-side clickable element');
           return el;
         }
       }
@@ -461,6 +486,28 @@
     const element = document.elementFromPoint(x, y);
     if (element) {
       console.log('Clicking on right side element:', element.tagName);
+      element.dispatchEvent(clickEvent);
+      element.click();
+    }
+  }
+
+  function clickOnLeftSide() {
+    // Click on the left third of the screen (for vertical/縦書き books)
+    const x = window.innerWidth * 0.15;
+    const y = window.innerHeight * 0.5;
+
+    const clickEvent = new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      clientX: x,
+      clientY: y,
+      view: window
+    });
+
+    // Find the element at that position and click it
+    const element = document.elementFromPoint(x, y);
+    if (element) {
+      console.log('Clicking on left side element:', element.tagName);
       element.dispatchEvent(clickEvent);
       element.click();
     }
