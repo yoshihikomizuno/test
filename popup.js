@@ -8,6 +8,7 @@ class PopupController {
     this.totalPages = 0;
     this.bookTitle = '';
     this.totalPageCount = null;
+    this.avgPageSizeBytes = 150000; // Average ~150KB per page estimate
 
     this.initElements();
     this.loadSettings();
@@ -43,6 +44,8 @@ class PopupController {
         this.endPageInput.value = result.settings.endPage || 10;
         this.qualitySelect.value = result.settings.quality || 0.92;
       }
+      // Show initial size estimate
+      this.updatePreEstimatedSize();
     });
 
     chrome.storage.local.get(['screenshots', 'bookTitle'], (result) => {
@@ -63,6 +66,7 @@ class PopupController {
       quality: parseFloat(this.qualitySelect.value)
     };
     chrome.storage.local.set({ settings });
+    this.updatePreEstimatedSize();
   }
 
   setupEventListeners() {
@@ -71,10 +75,11 @@ class PopupController {
     this.downloadBtn.addEventListener('click', () => this.downloadPDF());
     this.allPagesBtn.addEventListener('click', () => this.setAllPages());
 
-    [this.startPageInput, this.endPageInput, this.qualitySelect]
-      .forEach(input => {
-        input.addEventListener('change', () => this.saveSettings());
-      });
+    // Update size estimate when inputs change
+    [this.startPageInput, this.endPageInput, this.qualitySelect].forEach(input => {
+      input.addEventListener('change', () => this.saveSettings());
+      input.addEventListener('input', () => this.updatePreEstimatedSize());
+    });
 
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       this.handleMessage(message);
@@ -128,6 +133,7 @@ class PopupController {
 
           if (this.totalPageCount) {
             this.endPageInput.max = this.totalPageCount;
+            this.updatePreEstimatedSize();
           }
         }
       });
@@ -159,6 +165,31 @@ class PopupController {
     }
   }
 
+  // Calculate pre-capture estimated size based on page count and quality
+  updatePreEstimatedSize() {
+    const startPage = parseInt(this.startPageInput.value) || 1;
+    const endPage = parseInt(this.endPageInput.value) || 10;
+    const quality = parseFloat(this.qualitySelect.value) || 0.92;
+
+    if (startPage > endPage) {
+      return;
+    }
+
+    const pageCount = endPage - startPage + 1;
+    // Estimate based on quality: higher quality = larger size
+    const qualityMultiplier = quality / 0.92; // normalize to default quality
+    const estimatedSize = Math.round(pageCount * this.avgPageSizeBytes * qualityMultiplier);
+
+    this.estimatedSizeEl.textContent = `約 ${this.formatFileSize(estimatedSize)}`;
+    this.fileSizeContainer.style.display = 'block';
+  }
+
+  setInputsDisabled(disabled) {
+    this.startPageInput.disabled = disabled;
+    this.endPageInput.disabled = disabled;
+    this.qualitySelect.disabled = disabled;
+  }
+
   async startCapture() {
     this.saveSettings();
 
@@ -178,27 +209,54 @@ class PopupController {
 
     chrome.storage.local.remove(['screenshots', 'bookTitle']);
 
+    // Disable all controls
     this.startBtn.disabled = true;
     this.stopBtn.disabled = false;
     this.downloadBtn.disabled = true;
     this.allPagesBtn.disabled = true;
+    this.setInputsDisabled(true);
+
     this.progressContainer.style.display = 'block';
     this.previewContainer.style.display = 'none';
-    this.fileSizeContainer.style.display = 'none';
     this.preview.innerHTML = '';
 
     this.updateProgress(0, this.totalPages);
-    this.setStatus('キャプチャ中...', 'running');
+    this.setStatus('キャプチャを開始しています...', 'running');
 
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
+      // First, inject content script if not already there
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content.js']
+        });
+      } catch (e) {
+        // Script may already be injected, ignore error
+        console.log('Script injection:', e.message);
+      }
+
+      // Small delay to ensure script is ready
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Send message to content script
       chrome.tabs.sendMessage(tab.id, {
         action: 'startCapture',
         settings: {
           startPage,
           endPage,
           quality
+        }
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.error('Message error:', chrome.runtime.lastError.message);
+          this.setStatus('エラー: コンテンツスクリプトに接続できません。ページを再読み込みしてください。', 'error');
+          this.resetUI();
+          return;
+        }
+        if (response && response.success) {
+          this.setStatus('キャプチャ中...', 'running');
         }
       });
     } catch (error) {
@@ -302,7 +360,7 @@ class PopupController {
 
   updateEstimatedSize() {
     if (this.screenshots.length === 0) {
-      this.fileSizeContainer.style.display = 'none';
+      this.updatePreEstimatedSize();
       return;
     }
 
@@ -315,6 +373,11 @@ class PopupController {
         const sizeStr = this.formatFileSize(sizeBytes);
         this.estimatedSizeEl.textContent = sizeStr;
         this.fileSizeContainer.style.display = 'block';
+
+        // Update average page size for future estimates
+        if (this.screenshots.length > 0) {
+          this.avgPageSizeBytes = Math.round(sizeBytes / this.screenshots.length);
+        }
       }
     });
   }
@@ -335,6 +398,7 @@ class PopupController {
     this.startBtn.disabled = false;
     this.stopBtn.disabled = true;
     this.allPagesBtn.disabled = false;
+    this.setInputsDisabled(false);
   }
 
   async downloadPDF() {
