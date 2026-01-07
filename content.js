@@ -60,6 +60,9 @@
         .trim();
     }
 
+    // Try to trigger UI to appear by simulating mouse movement
+    triggerUIDisplay();
+
     // Try to get total pages from page indicator
     const pageInfo = getCurrentPageInfo();
     if (pageInfo.total) {
@@ -70,150 +73,308 @@
     return { title, totalPages };
   }
 
+  function triggerUIDisplay() {
+    // Move mouse to bottom of screen to trigger footer/navigation bar
+    const centerX = window.innerWidth / 2;
+    const bottomY = window.innerHeight - 50;
+
+    const moveEvent = new MouseEvent('mousemove', {
+      bubbles: true,
+      cancelable: true,
+      clientX: centerX,
+      clientY: bottomY,
+      view: window
+    });
+
+    document.dispatchEvent(moveEvent);
+    document.body.dispatchEvent(moveEvent);
+
+    // Also try clicking on the center to make sure reader is focused
+    const clickEvent = new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      clientX: centerX,
+      clientY: window.innerHeight / 2,
+      view: window
+    });
+
+    // Find the main reader element and click it
+    const readerElements = document.querySelectorAll(
+      '#kindle-reader, #KindleReader, [id*="reader"], [class*="reader"], ' +
+      '#content-container, .content-container, iframe'
+    );
+    readerElements.forEach(el => {
+      el.dispatchEvent(moveEvent);
+    });
+  }
+
   function getCurrentPageInfo() {
     let current = null;
     let total = null;
 
-    // Method 1: Look for page indicator text patterns
+    // ===== Method 1: Kindle-specific selectors =====
+    // Look for the footer bar with page/location info
+    const kindlePageSelectors = [
+      // Progress bar area
+      '[class*="progress"]',
+      '[class*="Progress"]',
+      '[id*="progress"]',
+      // Footer/bottom bar
+      '[class*="footer"]',
+      '[class*="Footer"]',
+      '[class*="bottomBar"]',
+      '[class*="bottom-bar"]',
+      '[class*="navBar"]',
+      '[class*="navigation"]',
+      // Page number displays
+      '[class*="pageNum"]',
+      '[class*="page-num"]',
+      '[class*="pageCount"]',
+      '[class*="page-count"]',
+      '[class*="location"]',
+      '[class*="Location"]',
+      // Kindle-specific
+      '[class*="kindle"]',
+      '[id*="kindle"]',
+      '[class*="position"]',
+      '[class*="Position"]'
+    ];
+
+    for (const selector of kindlePageSelectors) {
+      try {
+        const elements = document.querySelectorAll(selector);
+        for (const el of elements) {
+          const result = extractPageNumbers(el);
+          if (result.total) {
+            console.log('Found page info from Kindle selector:', selector, result);
+            return result;
+          }
+        }
+      } catch (e) {}
+    }
+
+    // ===== Method 2: Search all text content for page patterns =====
     const textPatterns = [
-      // Standard patterns: "1 / 6", "1/6", "1 of 6"
-      /^\s*(\d+)\s*[/／of]\s*(\d+)\s*$/i,
-      // Japanese patterns: "1ページ / 6ページ", "1 / 6ページ"
-      /^\s*(\d+)\s*(?:ページ)?\s*[/／]\s*(\d+)\s*(?:ページ)?\s*$/i,
-      // "ページ 1 / 6" or "Page 1 / 6"
-      /(?:ページ|Page)\s*(\d+)\s*[/／of]\s*(\d+)/i,
-      // "1ページ目 / 全6ページ"
-      /(\d+)\s*ページ目?\s*[/／]\s*全?\s*(\d+)\s*ページ/i,
-      // Location patterns: "位置No. 1 / 843", "Location 1 of 843"
-      /(?:位置|Location|Loc)[\s.No]*(\d+)\s*[/／of]\s*(\d+)/i
+      // "1 / 123", "1/123", "1 of 123"
+      /(\d+)\s*[/／]\s*(\d+)/,
+      /(\d+)\s+of\s+(\d+)/i,
+      // Japanese: "1ページ / 123ページ"
+      /(\d+)\s*(?:ページ)?\s*[/／]\s*(\d+)\s*(?:ページ)?/,
+      // "ページ 1 / 123"
+      /(?:ページ|page)\s*(\d+)\s*[/／]\s*(\d+)/i,
+      // Location: "位置No. 1 / 843"
+      /(?:位置|location|loc)[\s.No]*(\d+)\s*[/／]\s*(\d+)/i,
+      // "Page 1 of 123"
+      /page\s*(\d+)\s*of\s*(\d+)/i
     ];
 
-    // Check all text nodes
-    const walker = document.createTreeWalker(
-      document.body,
-      NodeFilter.SHOW_TEXT,
-      null,
-      false
-    );
-
-    let node;
-    while (node = walker.nextNode()) {
-      const text = node.textContent.trim();
-      if (!text || text.length > 50) continue;
-
-      for (const pattern of textPatterns) {
-        const match = text.match(pattern);
-        if (match) {
-          current = parseInt(match[1]);
-          total = parseInt(match[2]);
-          console.log('Found page info from text:', current, '/', total, '- Pattern:', pattern);
-          return { current, total };
+    // Check all visible text
+    const allText = document.body.innerText;
+    for (const pattern of textPatterns) {
+      const match = allText.match(pattern);
+      if (match) {
+        const c = parseInt(match[1]);
+        const t = parseInt(match[2]);
+        if (t > 1 && c <= t) {
+          console.log('Found page info from body text:', c, '/', t);
+          return { current: c, total: t };
         }
       }
     }
 
-    // Method 2: Look for elements with specific attributes
-    const pageIndicators = document.querySelectorAll(
-      '[class*="page"], [class*="Page"], [class*="location"], [class*="Location"], ' +
-      '[id*="page"], [id*="Page"], [id*="location"], [id*="Location"], ' +
-      '[aria-label*="page"], [aria-label*="ページ"], [aria-label*="位置"]'
-    );
-
-    for (const el of pageIndicators) {
-      const text = el.textContent.trim();
-      for (const pattern of textPatterns) {
-        const match = text.match(pattern);
-        if (match) {
-          current = parseInt(match[1]);
-          total = parseInt(match[2]);
-          console.log('Found page info from element:', current, '/', total);
-          return { current, total };
-        }
-      }
-
-      // Check aria-label
-      const ariaLabel = el.getAttribute('aria-label') || '';
-      for (const pattern of textPatterns) {
-        const match = ariaLabel.match(pattern);
-        if (match) {
-          current = parseInt(match[1]);
-          total = parseInt(match[2]);
-          console.log('Found page info from aria-label:', current, '/', total);
-          return { current, total };
-        }
-      }
-    }
-
-    // Method 3: Look for progress bar or slider elements
-    const sliders = document.querySelectorAll(
-      'input[type="range"], [role="slider"], [class*="slider"], [class*="progress"]'
-    );
-
-    for (const slider of sliders) {
-      const max = slider.getAttribute('max') || slider.getAttribute('aria-valuemax');
-      const val = slider.getAttribute('value') || slider.getAttribute('aria-valuenow');
-      if (max && val) {
-        current = parseInt(val);
-        total = parseInt(max);
-        if (total > 0 && current >= 0) {
-          console.log('Found page info from slider:', current, '/', total);
-          return { current, total };
-        }
-      }
-    }
-
-    // Method 4: Look for input fields with page numbers
-    const inputs = document.querySelectorAll('input');
-    for (const input of inputs) {
-      const val = input.value;
-      const max = input.getAttribute('max');
-      if (val && /^\d+$/.test(val)) {
-        current = parseInt(val);
-        if (max && /^\d+$/.test(max)) {
-          total = parseInt(max);
-          console.log('Found page info from input:', current, '/', total);
-          return { current, total };
-        }
-      }
-    }
-
-    // Method 5: Check for Kindle-specific reader elements
-    const kindleSelectors = [
-      '#kindleReader_pageTurnAreaLeft',
-      '#kindleReader_pageTurnAreaRight',
-      '.kindleReaderPage',
-      '[id*="pageNum"]',
-      '[class*="pageNum"]'
+    // ===== Method 3: Look for slider/range elements =====
+    const sliderSelectors = [
+      'input[type="range"]',
+      '[role="slider"]',
+      '[role="progressbar"]',
+      '[aria-valuemax]',
+      '[data-max]',
+      '[data-total]'
     ];
 
-    // Look for adjacent elements showing "current" and "total"
+    for (const selector of sliderSelectors) {
+      try {
+        const elements = document.querySelectorAll(selector);
+        for (const el of elements) {
+          const max = el.getAttribute('max') ||
+                      el.getAttribute('aria-valuemax') ||
+                      el.getAttribute('data-max') ||
+                      el.getAttribute('data-total');
+          const val = el.getAttribute('value') ||
+                      el.getAttribute('aria-valuenow') ||
+                      el.getAttribute('data-value') ||
+                      el.getAttribute('data-current');
+
+          if (max) {
+            const t = parseInt(max);
+            const c = val ? parseInt(val) : 1;
+            if (t > 1) {
+              console.log('Found page info from slider:', c, '/', t);
+              return { current: c, total: t };
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    // ===== Method 4: Look for data attributes on any element =====
+    const dataAttrSelectors = [
+      '[data-page-count]',
+      '[data-total-pages]',
+      '[data-pages]',
+      '[data-max-page]',
+      '[data-total]',
+      '[data-num-pages]'
+    ];
+
+    for (const selector of dataAttrSelectors) {
+      try {
+        const el = document.querySelector(selector);
+        if (el) {
+          const attrs = ['data-page-count', 'data-total-pages', 'data-pages',
+                         'data-max-page', 'data-total', 'data-num-pages'];
+          for (const attr of attrs) {
+            const val = el.getAttribute(attr);
+            if (val && /^\d+$/.test(val)) {
+              const t = parseInt(val);
+              if (t > 1) {
+                console.log('Found page info from data attribute:', attr, '=', t);
+                return { current: 1, total: t };
+              }
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    // ===== Method 5: Check iframes =====
+    const iframes = document.querySelectorAll('iframe');
+    for (const iframe of iframes) {
+      try {
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+        if (iframeDoc) {
+          const iframeText = iframeDoc.body ? iframeDoc.body.innerText : '';
+          for (const pattern of textPatterns) {
+            const match = iframeText.match(pattern);
+            if (match) {
+              const c = parseInt(match[1]);
+              const t = parseInt(match[2]);
+              if (t > 1 && c <= t) {
+                console.log('Found page info from iframe:', c, '/', t);
+                return { current: c, total: t };
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // Cross-origin iframe, skip
+      }
+    }
+
+    // ===== Method 6: Find numeric pairs in close proximity =====
     const numericElements = [];
     document.querySelectorAll('*').forEach(el => {
-      if (el.children.length === 0) {
+      if (el.children.length === 0 && el.offsetParent !== null) {
         const text = el.textContent.trim();
-        if (/^\d+$/.test(text) && parseInt(text) > 0 && parseInt(text) < 10000) {
-          numericElements.push({ el, value: parseInt(text) });
+        if (/^\d+$/.test(text)) {
+          const value = parseInt(text);
+          if (value > 0 && value < 10000) {
+            const rect = el.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+              numericElements.push({ el, value, rect });
+            }
+          }
         }
       }
     });
 
-    // Find pairs of numbers that could be current/total
+    // Sort by position (left to right, top to bottom)
+    numericElements.sort((a, b) => {
+      if (Math.abs(a.rect.top - b.rect.top) < 20) {
+        return a.rect.left - b.rect.left;
+      }
+      return a.rect.top - b.rect.top;
+    });
+
+    // Find consecutive number pairs that look like page indicators
     for (let i = 0; i < numericElements.length - 1; i++) {
       const curr = numericElements[i];
       const tot = numericElements[i + 1];
-      // Check if they're close in the DOM
-      const rect1 = curr.el.getBoundingClientRect();
-      const rect2 = tot.el.getBoundingClientRect();
-      const distance = Math.abs(rect1.left - rect2.left) + Math.abs(rect1.top - rect2.top);
-      if (distance < 200 && curr.value <= tot.value && tot.value > 1) {
-        current = curr.value;
-        total = tot.value;
-        console.log('Found page info from numeric pair:', current, '/', total);
-        return { current, total };
+
+      // Check if they're close together
+      const horizontalDist = Math.abs(curr.rect.right - tot.rect.left);
+      const verticalDist = Math.abs(curr.rect.top - tot.rect.top);
+
+      if (horizontalDist < 100 && verticalDist < 30 && curr.value <= tot.value && tot.value > 1) {
+        // Check if there's a separator between them (/, of, etc.)
+        const parent = curr.el.parentElement;
+        if (parent) {
+          const parentText = parent.textContent;
+          if (parentText.includes('/') || parentText.includes('of') || parentText.includes('／')) {
+            console.log('Found page info from numeric pair:', curr.value, '/', tot.value);
+            return { current: curr.value, total: tot.value };
+          }
+        }
       }
     }
 
-    console.log('Could not find page info');
+    console.log('Could not find page info automatically');
+    return { current, total };
+  }
+
+  function extractPageNumbers(element) {
+    let current = null;
+    let total = null;
+
+    // Check text content
+    const text = element.textContent || '';
+    const patterns = [
+      /(\d+)\s*[/／]\s*(\d+)/,
+      /(\d+)\s+of\s+(\d+)/i,
+      /(?:page|ページ)\s*(\d+)\s*[/／of]\s*(\d+)/i
+    ];
+
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match) {
+        current = parseInt(match[1]);
+        total = parseInt(match[2]);
+        if (total > 1 && current <= total) {
+          return { current, total };
+        }
+      }
+    }
+
+    // Check attributes
+    const attrs = element.attributes;
+    for (const attr of attrs) {
+      const name = attr.name.toLowerCase();
+      const value = attr.value;
+
+      if ((name.includes('max') || name.includes('total') || name.includes('count')) &&
+          /^\d+$/.test(value)) {
+        total = parseInt(value);
+      }
+      if ((name.includes('current') || name.includes('value') || name.includes('now')) &&
+          /^\d+$/.test(value)) {
+        current = parseInt(value);
+      }
+    }
+
+    if (total && total > 1) {
+      return { current: current || 1, total };
+    }
+
+    // Check children recursively (but not too deep)
+    if (element.children.length < 20) {
+      for (const child of element.children) {
+        const result = extractPageNumbers(child);
+        if (result.total) {
+          return result;
+        }
+      }
+    }
+
     return { current, total };
   }
 
