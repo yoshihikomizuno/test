@@ -160,9 +160,23 @@ class PopupController {
   async setAllPages() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+      // First, try to inject the content script if not already loaded
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content.js']
+        });
+      } catch (e) {
+        console.log('Script injection:', e.message);
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 200));
+
       chrome.tabs.sendMessage(tab.id, { action: 'getBookInfo' }, (response) => {
         if (chrome.runtime.lastError) {
-          this.setStatus('ページ情報を取得できません', 'error');
+          console.log('Message error:', chrome.runtime.lastError.message);
+          this.promptManualPageCount();
           return;
         }
         if (response && response.success && response.totalPages) {
@@ -172,11 +186,38 @@ class PopupController {
           this.saveSettings();
           this.setStatus(`全${response.totalPages}ページを設定しました`, 'success');
         } else {
-          this.setStatus('ページ数を取得できません', 'error');
+          // Could not auto-detect, ask for manual input
+          this.promptManualPageCount();
         }
       });
     } catch (error) {
       this.setStatus('エラー: ' + error.message, 'error');
+      this.promptManualPageCount();
+    }
+  }
+
+  promptManualPageCount() {
+    const totalPages = prompt(
+      'ページ数を自動取得できませんでした。\n' +
+      '書籍の総ページ数を手動で入力してください：\n\n' +
+      '（ヒント：Kindleリーダーの下部にあるスライダーや\n' +
+      'ページ表示をクリックすると総ページ数が確認できます）'
+    );
+
+    if (totalPages && /^\d+$/.test(totalPages.trim())) {
+      const pages = parseInt(totalPages.trim());
+      if (pages > 0) {
+        this.startPageInput.value = 1;
+        this.endPageInput.value = pages;
+        this.totalPageCount = pages;
+        this.saveSettings();
+        this.setStatus(`全${pages}ページを設定しました`, 'success');
+        return;
+      }
+    }
+
+    if (totalPages !== null) {
+      this.setStatus('有効なページ数を入力してください', 'error');
     }
   }
 

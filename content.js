@@ -74,32 +74,146 @@
     let current = null;
     let total = null;
 
-    // Look for page indicator like "1 / 6" or "Location 1 of 843"
-    const allElements = document.querySelectorAll('*');
-    for (const el of allElements) {
-      if (el.children.length === 0 || el.tagName === 'INPUT') {
-        const text = el.textContent || el.value || '';
+    // Method 1: Look for page indicator text patterns
+    const textPatterns = [
+      // Standard patterns: "1 / 6", "1/6", "1 of 6"
+      /^\s*(\d+)\s*[/／of]\s*(\d+)\s*$/i,
+      // Japanese patterns: "1ページ / 6ページ", "1 / 6ページ"
+      /^\s*(\d+)\s*(?:ページ)?\s*[/／]\s*(\d+)\s*(?:ページ)?\s*$/i,
+      // "ページ 1 / 6" or "Page 1 / 6"
+      /(?:ページ|Page)\s*(\d+)\s*[/／of]\s*(\d+)/i,
+      // "1ページ目 / 全6ページ"
+      /(\d+)\s*ページ目?\s*[/／]\s*全?\s*(\d+)\s*ページ/i,
+      // Location patterns: "位置No. 1 / 843", "Location 1 of 843"
+      /(?:位置|Location|Loc)[\s.No]*(\d+)\s*[/／of]\s*(\d+)/i
+    ];
 
-        // Match patterns like "1 / 6", "1/6", "1 of 6"
-        const pageMatch = text.match(/^\s*(\d+)\s*[/／of]\s*(\d+)\s*$/i);
-        if (pageMatch) {
-          current = parseInt(pageMatch[1]);
-          total = parseInt(pageMatch[2]);
-          console.log('Found page info:', current, '/', total);
+    // Check all text nodes
+    const walker = document.createTreeWalker(
+      document.body,
+      NodeFilter.SHOW_TEXT,
+      null,
+      false
+    );
+
+    let node;
+    while (node = walker.nextNode()) {
+      const text = node.textContent.trim();
+      if (!text || text.length > 50) continue;
+
+      for (const pattern of textPatterns) {
+        const match = text.match(pattern);
+        if (match) {
+          current = parseInt(match[1]);
+          total = parseInt(match[2]);
+          console.log('Found page info from text:', current, '/', total, '- Pattern:', pattern);
           return { current, total };
         }
       }
     }
 
-    // Try input fields
-    const inputs = document.querySelectorAll('input');
-    for (const input of inputs) {
-      const val = input.value;
-      if (val && /^\d+$/.test(val)) {
-        current = parseInt(val);
+    // Method 2: Look for elements with specific attributes
+    const pageIndicators = document.querySelectorAll(
+      '[class*="page"], [class*="Page"], [class*="location"], [class*="Location"], ' +
+      '[id*="page"], [id*="Page"], [id*="location"], [id*="Location"], ' +
+      '[aria-label*="page"], [aria-label*="ページ"], [aria-label*="位置"]'
+    );
+
+    for (const el of pageIndicators) {
+      const text = el.textContent.trim();
+      for (const pattern of textPatterns) {
+        const match = text.match(pattern);
+        if (match) {
+          current = parseInt(match[1]);
+          total = parseInt(match[2]);
+          console.log('Found page info from element:', current, '/', total);
+          return { current, total };
+        }
+      }
+
+      // Check aria-label
+      const ariaLabel = el.getAttribute('aria-label') || '';
+      for (const pattern of textPatterns) {
+        const match = ariaLabel.match(pattern);
+        if (match) {
+          current = parseInt(match[1]);
+          total = parseInt(match[2]);
+          console.log('Found page info from aria-label:', current, '/', total);
+          return { current, total };
+        }
       }
     }
 
+    // Method 3: Look for progress bar or slider elements
+    const sliders = document.querySelectorAll(
+      'input[type="range"], [role="slider"], [class*="slider"], [class*="progress"]'
+    );
+
+    for (const slider of sliders) {
+      const max = slider.getAttribute('max') || slider.getAttribute('aria-valuemax');
+      const val = slider.getAttribute('value') || slider.getAttribute('aria-valuenow');
+      if (max && val) {
+        current = parseInt(val);
+        total = parseInt(max);
+        if (total > 0 && current >= 0) {
+          console.log('Found page info from slider:', current, '/', total);
+          return { current, total };
+        }
+      }
+    }
+
+    // Method 4: Look for input fields with page numbers
+    const inputs = document.querySelectorAll('input');
+    for (const input of inputs) {
+      const val = input.value;
+      const max = input.getAttribute('max');
+      if (val && /^\d+$/.test(val)) {
+        current = parseInt(val);
+        if (max && /^\d+$/.test(max)) {
+          total = parseInt(max);
+          console.log('Found page info from input:', current, '/', total);
+          return { current, total };
+        }
+      }
+    }
+
+    // Method 5: Check for Kindle-specific reader elements
+    const kindleSelectors = [
+      '#kindleReader_pageTurnAreaLeft',
+      '#kindleReader_pageTurnAreaRight',
+      '.kindleReaderPage',
+      '[id*="pageNum"]',
+      '[class*="pageNum"]'
+    ];
+
+    // Look for adjacent elements showing "current" and "total"
+    const numericElements = [];
+    document.querySelectorAll('*').forEach(el => {
+      if (el.children.length === 0) {
+        const text = el.textContent.trim();
+        if (/^\d+$/.test(text) && parseInt(text) > 0 && parseInt(text) < 10000) {
+          numericElements.push({ el, value: parseInt(text) });
+        }
+      }
+    });
+
+    // Find pairs of numbers that could be current/total
+    for (let i = 0; i < numericElements.length - 1; i++) {
+      const curr = numericElements[i];
+      const tot = numericElements[i + 1];
+      // Check if they're close in the DOM
+      const rect1 = curr.el.getBoundingClientRect();
+      const rect2 = tot.el.getBoundingClientRect();
+      const distance = Math.abs(rect1.left - rect2.left) + Math.abs(rect1.top - rect2.top);
+      if (distance < 200 && curr.value <= tot.value && tot.value > 1) {
+        current = curr.value;
+        total = tot.value;
+        console.log('Found page info from numeric pair:', current, '/', total);
+        return { current, total };
+      }
+    }
+
+    console.log('Could not find page info');
     return { current, total };
   }
 
