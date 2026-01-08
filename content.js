@@ -38,6 +38,12 @@
         const info = getBookInfo();
         sendResponse({ success: true, ...info });
         break;
+      case 'getTotalPagesWithCover':
+        // Navigate to next page to get accurate page count, then return
+        getTotalPagesWithCover(message.readingDirection || 'vertical')
+          .then(result => sendResponse({ success: true, ...result }))
+          .catch(err => sendResponse({ success: false, error: err.message }));
+        return true; // Keep message channel open for async response
       case 'ping':
         sendResponse({ success: true, status: 'ready' });
         break;
@@ -46,6 +52,55 @@
     }
     return true;
   });
+
+  async function getTotalPagesWithCover(readingDirection) {
+    console.log('Getting total pages with cover, direction:', readingDirection);
+
+    // Store current settings temporarily
+    const tempSettings = { ...settings };
+    settings.readingDirection = readingDirection;
+
+    // First, try to get page info from current page (might be cover)
+    let pageInfo = getCurrentPageInfo();
+    console.log('Page info from current page:', pageInfo);
+
+    // Navigate to next page to get accurate count (cover page often shows wrong info)
+    console.log('Navigating to next page to get accurate count...');
+
+    // Go to next page
+    await goToNextPage();
+    await sleep(500); // Wait for page to load
+
+    // Get page info from this page
+    pageInfo = getCurrentPageInfo();
+    console.log('Page info after navigation:', pageInfo);
+
+    // Go back to cover/previous page
+    await goToPrevPage();
+    await sleep(300);
+
+    // Restore settings
+    settings = tempSettings;
+
+    // Get title
+    const docTitle = document.title;
+    let title = '';
+    if (docTitle) {
+      title = docTitle
+        .replace(/\s*[-–—]\s*Kindle.*$/i, '')
+        .replace(/Kindle Cloud Reader/i, '')
+        .trim();
+    }
+
+    // Total pages = Kindle's displayed total + 1 (for cover)
+    let totalPages = null;
+    if (pageInfo.total) {
+      totalPages = pageInfo.total + 1; // Add 1 for cover page
+      console.log('Total pages including cover:', totalPages);
+    }
+
+    return { title, totalPages, kindlePages: pageInfo.total };
+  }
 
   function getBookInfo() {
     let title = '';

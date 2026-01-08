@@ -173,7 +173,17 @@ class PopupController {
 
       await new Promise(resolve => setTimeout(resolve, 200));
 
-      chrome.tabs.sendMessage(tab.id, { action: 'getBookInfo' }, (response) => {
+      this.setStatus('ページ数を取得中...', 'running');
+      this.allPagesBtn.disabled = true;
+
+      // Use getTotalPagesWithCover to navigate to next page and get accurate count
+      const readingDirection = this.getReadingDirection();
+      chrome.tabs.sendMessage(tab.id, {
+        action: 'getTotalPagesWithCover',
+        readingDirection: readingDirection
+      }, (response) => {
+        this.allPagesBtn.disabled = false;
+
         if (chrome.runtime.lastError) {
           console.log('Message error:', chrome.runtime.lastError.message);
           this.promptManualPageCount();
@@ -184,39 +194,43 @@ class PopupController {
           this.endPageInput.value = response.totalPages;
           this.totalPageCount = response.totalPages;
           this.saveSettings();
-          this.setStatus(`全${response.totalPages}ページを設定しました`, 'success');
+          this.setStatus(`全${response.totalPages}ページを設定しました（表紙含む）`, 'success');
         } else {
           // Could not auto-detect, ask for manual input
           this.promptManualPageCount();
         }
       });
     } catch (error) {
+      this.allPagesBtn.disabled = false;
       this.setStatus('エラー: ' + error.message, 'error');
       this.promptManualPageCount();
     }
   }
 
   promptManualPageCount() {
-    const totalPages = prompt(
+    const kindlePages = prompt(
       'ページ数を自動取得できませんでした。\n' +
-      '書籍の総ページ数を手動で入力してください：\n\n' +
-      '（ヒント：Kindleリーダーの下部にあるスライダーや\n' +
-      'ページ表示をクリックすると総ページ数が確認できます）'
+      'Kindleで表示されているページ数を入力してください：\n\n' +
+      '（ヒント：表紙の次のページに移動して、\n' +
+      '下部のスライダーやページ表示で確認できます。\n' +
+      '例：「1 / 123」なら「123」と入力）'
     );
 
-    if (totalPages && /^\d+$/.test(totalPages.trim())) {
-      const pages = parseInt(totalPages.trim());
-      if (pages > 0) {
+    if (kindlePages && /^\d+$/.test(kindlePages.trim())) {
+      const displayedPages = parseInt(kindlePages.trim());
+      if (displayedPages > 0) {
+        // Add 1 for cover page
+        const totalPages = displayedPages + 1;
         this.startPageInput.value = 1;
-        this.endPageInput.value = pages;
-        this.totalPageCount = pages;
+        this.endPageInput.value = totalPages;
+        this.totalPageCount = totalPages;
         this.saveSettings();
-        this.setStatus(`全${pages}ページを設定しました`, 'success');
+        this.setStatus(`全${totalPages}ページを設定しました（表紙含む）`, 'success');
         return;
       }
     }
 
-    if (totalPages !== null) {
+    if (kindlePages !== null) {
       this.setStatus('有効なページ数を入力してください', 'error');
     }
   }
