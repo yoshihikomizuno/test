@@ -60,29 +60,24 @@
     const tempSettings = { ...settings };
     settings.readingDirection = readingDirection;
 
-    // First, hide any visible UI by clicking on the center of the reader
-    // This is necessary because visible UI elements can intercept clicks
-    console.log('Hiding UI before navigation...');
-    await hideReaderUI();
-    await sleep(300);
+    // Focus on the reader first to ensure keyboard events work
+    focusOnReader();
+    await sleep(200);
 
     // Record starting position
     const startPageInfo = getCurrentPageInfo();
     console.log('Starting page info:', startPageInfo);
 
-    // Always navigate forward twice to ensure we're definitely past the cover
-    // This handles both cases: starting from cover or from page 1
-    console.log('Navigating forward to get accurate count...');
+    // Use keyboard navigation which works even when UI is visible
+    console.log('Navigating forward using keyboard...');
+    const isVertical = readingDirection === 'vertical';
 
-    await goToNextPage();
-    await sleep(500);
+    // Navigate forward twice using keyboard
+    await navigateWithKeyboard(isVertical ? 'ArrowLeft' : 'ArrowRight');
+    await sleep(600);
 
-    // Hide UI again in case it appeared after page turn
-    await hideReaderUI();
-    await sleep(200);
-
-    await goToNextPage();
-    await sleep(500);
+    await navigateWithKeyboard(isVertical ? 'ArrowLeft' : 'ArrowRight');
+    await sleep(600);
 
     // Trigger UI to make sure page info is displayed
     triggerUIDisplay();
@@ -100,18 +95,11 @@
       console.log('Page info after retry:', pageInfo);
     }
 
-    // Hide UI before navigating back
-    await hideReaderUI();
-    await sleep(200);
+    // Navigate back using keyboard
+    await navigateWithKeyboard(isVertical ? 'ArrowRight' : 'ArrowLeft');
+    await sleep(500);
 
-    // Navigate back to starting position (go back twice)
-    await goToPrevPage();
-    await sleep(400);
-
-    await hideReaderUI();
-    await sleep(200);
-
-    await goToPrevPage();
+    await navigateWithKeyboard(isVertical ? 'ArrowRight' : 'ArrowLeft');
     await sleep(300);
 
     // Restore settings
@@ -135,6 +123,110 @@
     }
 
     return { title, totalPages, kindlePages: pageInfo.total };
+  }
+
+  function focusOnReader() {
+    // Try to focus on the Kindle reader element
+    const readerSelectors = [
+      '#kindle-reader',
+      '#KindleReader',
+      '[id*="reader"]',
+      '[class*="reader"]',
+      '[class*="Reader"]',
+      'iframe',
+      '[role="main"]',
+      '[tabindex="0"]',
+      'main',
+      '#content-container'
+    ];
+
+    for (const selector of readerSelectors) {
+      try {
+        const el = document.querySelector(selector);
+        if (el) {
+          el.focus();
+          console.log('Focused on:', selector);
+
+          // If it's an iframe, try to focus inside it too
+          if (el.tagName === 'IFRAME') {
+            try {
+              el.contentWindow.focus();
+              if (el.contentDocument && el.contentDocument.body) {
+                el.contentDocument.body.focus();
+              }
+            } catch (e) {}
+          }
+          return;
+        }
+      } catch (e) {}
+    }
+
+    // Fallback: focus on body
+    document.body.focus();
+  }
+
+  async function navigateWithKeyboard(arrowKey) {
+    const keyCode = arrowKey === 'ArrowLeft' ? 37 : 39;
+
+    console.log('Keyboard navigation:', arrowKey);
+
+    // Focus first
+    focusOnReader();
+
+    const eventOptions = {
+      key: arrowKey,
+      code: arrowKey,
+      keyCode: keyCode,
+      which: keyCode,
+      bubbles: true,
+      cancelable: true,
+      view: window
+    };
+
+    // Create and dispatch events
+    const keydownEvent = new KeyboardEvent('keydown', eventOptions);
+    const keyupEvent = new KeyboardEvent('keyup', eventOptions);
+
+    // Dispatch to multiple targets for maximum compatibility
+    const targets = [
+      document,
+      document.body,
+      document.documentElement,
+      window,
+      document.activeElement
+    ].filter(Boolean);
+
+    // Also find Kindle-specific elements
+    const kindleElements = document.querySelectorAll(
+      '[class*="reader"], [class*="Reader"], [id*="reader"], iframe, [role="application"]'
+    );
+    kindleElements.forEach(el => targets.push(el));
+
+    // Dispatch to all targets
+    for (const target of targets) {
+      try {
+        target.dispatchEvent(keydownEvent);
+        target.dispatchEvent(keyupEvent);
+      } catch (e) {}
+    }
+
+    // Also try using the native keyboard event on window with isTrusted-like behavior
+    try {
+      // Focus on iframe content if exists
+      const iframes = document.querySelectorAll('iframe');
+      for (const iframe of iframes) {
+        try {
+          if (iframe.contentWindow) {
+            iframe.contentWindow.dispatchEvent(new KeyboardEvent('keydown', eventOptions));
+            iframe.contentWindow.dispatchEvent(new KeyboardEvent('keyup', eventOptions));
+          }
+          if (iframe.contentDocument) {
+            iframe.contentDocument.dispatchEvent(new KeyboardEvent('keydown', eventOptions));
+            iframe.contentDocument.dispatchEvent(new KeyboardEvent('keyup', eventOptions));
+          }
+        } catch (e) {}
+      }
+    } catch (e) {}
   }
 
   async function hideReaderUI() {
