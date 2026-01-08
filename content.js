@@ -60,6 +60,12 @@
     const tempSettings = { ...settings };
     settings.readingDirection = readingDirection;
 
+    // First, hide any visible UI by clicking on the center of the reader
+    // This is necessary because visible UI elements can intercept clicks
+    console.log('Hiding UI before navigation...');
+    await hideReaderUI();
+    await sleep(300);
+
     // Record starting position
     const startPageInfo = getCurrentPageInfo();
     console.log('Starting page info:', startPageInfo);
@@ -69,13 +75,18 @@
     console.log('Navigating forward to get accurate count...');
 
     await goToNextPage();
-    await sleep(400);
+    await sleep(500);
+
+    // Hide UI again in case it appeared after page turn
+    await hideReaderUI();
+    await sleep(200);
+
     await goToNextPage();
-    await sleep(400);
+    await sleep(500);
 
     // Trigger UI to make sure page info is displayed
     triggerUIDisplay();
-    await sleep(200);
+    await sleep(300);
 
     // Get page info from this page (should be page 2 or later, definitely not cover)
     let pageInfo = getCurrentPageInfo();
@@ -84,14 +95,22 @@
     // If still no page info, try triggering UI again and wait
     if (!pageInfo.total) {
       triggerUIDisplay();
-      await sleep(300);
+      await sleep(400);
       pageInfo = getCurrentPageInfo();
       console.log('Page info after retry:', pageInfo);
     }
 
+    // Hide UI before navigating back
+    await hideReaderUI();
+    await sleep(200);
+
     // Navigate back to starting position (go back twice)
     await goToPrevPage();
-    await sleep(300);
+    await sleep(400);
+
+    await hideReaderUI();
+    await sleep(200);
+
     await goToPrevPage();
     await sleep(300);
 
@@ -116,6 +135,32 @@
     }
 
     return { title, totalPages, kindlePages: pageInfo.total };
+  }
+
+  async function hideReaderUI() {
+    // Click on the center of the reader area to hide any visible UI
+    // Kindle reader toggles UI visibility on click
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight / 2;
+
+    const clickEvent = new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      clientX: centerX,
+      clientY: centerY,
+      view: window
+    });
+
+    // Find and click the reader element
+    const element = document.elementFromPoint(centerX, centerY);
+    if (element) {
+      console.log('Clicking center to hide UI:', element.tagName);
+      element.click();
+      element.dispatchEvent(clickEvent);
+    }
+
+    // Also dispatch to document in case needed
+    document.dispatchEvent(clickEvent);
   }
 
   function getBookInfo() {
