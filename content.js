@@ -60,22 +60,38 @@
     const tempSettings = { ...settings };
     settings.readingDirection = readingDirection;
 
-    // First, try to get page info from current page (might be cover)
-    let pageInfo = getCurrentPageInfo();
-    console.log('Page info from current page:', pageInfo);
+    // Record starting position
+    const startPageInfo = getCurrentPageInfo();
+    console.log('Starting page info:', startPageInfo);
 
-    // Navigate to next page to get accurate count (cover page often shows wrong info)
-    console.log('Navigating to next page to get accurate count...');
+    // Always navigate forward twice to ensure we're definitely past the cover
+    // This handles both cases: starting from cover or from page 1
+    console.log('Navigating forward to get accurate count...');
 
-    // Go to next page
     await goToNextPage();
-    await sleep(500); // Wait for page to load
+    await sleep(400);
+    await goToNextPage();
+    await sleep(400);
 
-    // Get page info from this page
-    pageInfo = getCurrentPageInfo();
+    // Trigger UI to make sure page info is displayed
+    triggerUIDisplay();
+    await sleep(200);
+
+    // Get page info from this page (should be page 2 or later, definitely not cover)
+    let pageInfo = getCurrentPageInfo();
     console.log('Page info after navigation:', pageInfo);
 
-    // Go back to cover/previous page
+    // If still no page info, try triggering UI again and wait
+    if (!pageInfo.total) {
+      triggerUIDisplay();
+      await sleep(300);
+      pageInfo = getCurrentPageInfo();
+      console.log('Page info after retry:', pageInfo);
+    }
+
+    // Navigate back to starting position (go back twice)
+    await goToPrevPage();
+    await sleep(300);
     await goToPrevPage();
     await sleep(300);
 
