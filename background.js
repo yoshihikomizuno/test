@@ -3,10 +3,14 @@
 // Import jsPDF library
 importScripts('lib/jspdf.umd.min.js');
 
+// Rate limiting for captureVisibleTab (Chrome limits calls per second)
+let lastCaptureTime = 0;
+const MIN_CAPTURE_INTERVAL = 1000; // Minimum 1 second between captures
+
 // Message listener
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'captureTab') {
-    captureTab(message.quality || 0.92)
+    rateLimitedCaptureTab(message.quality || 0.92)
       .then(dataUrl => {
         sendResponse({ success: true, dataUrl });
       })
@@ -35,6 +39,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 });
+
+// Rate-limited capture function to avoid Chrome's quota error
+async function rateLimitedCaptureTab(quality) {
+  const now = Date.now();
+  const timeSinceLastCapture = now - lastCaptureTime;
+
+  // Wait if we're calling too frequently
+  if (timeSinceLastCapture < MIN_CAPTURE_INTERVAL) {
+    const waitTime = MIN_CAPTURE_INTERVAL - timeSinceLastCapture;
+    await new Promise(resolve => setTimeout(resolve, waitTime));
+  }
+
+  lastCaptureTime = Date.now();
+  return captureTab(quality);
+}
 
 async function captureTab(quality) {
   return new Promise((resolve, reject) => {
