@@ -1,4 +1,4 @@
-// Popup script for Kindle Auto Screenshot extension
+// Popup script for Kindle to PDF extension
 
 class PopupController {
   constructor() {
@@ -25,6 +25,7 @@ class PopupController {
     this.endPageInput = document.getElementById('endPage');
     this.qualitySelect = document.getElementById('quality');
     this.readingDirectionRadios = document.querySelectorAll('input[name="readingDirection"]');
+    this.includeCoverCheckbox = document.getElementById('includeCover');
     this.statusEl = document.getElementById('status');
     this.progressContainer = document.getElementById('progressContainer');
     this.progressFill = document.getElementById('progressFill');
@@ -48,6 +49,16 @@ class PopupController {
     if (radio) radio.checked = true;
   }
 
+  getIncludeCover() {
+    return this.includeCoverCheckbox ? this.includeCoverCheckbox.checked : true;
+  }
+
+  setIncludeCover(value) {
+    if (this.includeCoverCheckbox) {
+      this.includeCoverCheckbox.checked = value;
+    }
+  }
+
   loadSettings() {
     chrome.storage.local.get(['settings'], (result) => {
       if (result.settings) {
@@ -55,6 +66,8 @@ class PopupController {
         this.endPageInput.value = result.settings.endPage || 10;
         this.qualitySelect.value = result.settings.quality || 0.92;
         this.setReadingDirection(result.settings.readingDirection || 'vertical');
+        // includeCover defaults to true if not set
+        this.setIncludeCover(result.settings.includeCover !== false);
       }
       this.updatePreEstimatedSize();
     });
@@ -75,7 +88,8 @@ class PopupController {
       startPage: parseInt(this.startPageInput.value),
       endPage: parseInt(this.endPageInput.value),
       quality: parseFloat(this.qualitySelect.value),
-      readingDirection: this.getReadingDirection()
+      readingDirection: this.getReadingDirection(),
+      includeCover: this.getIncludeCover()
     };
     chrome.storage.local.set({ settings });
     this.updatePreEstimatedSize();
@@ -95,6 +109,10 @@ class PopupController {
     this.readingDirectionRadios.forEach(radio => {
       radio.addEventListener('change', () => this.saveSettings());
     });
+
+    if (this.includeCoverCheckbox) {
+      this.includeCoverCheckbox.addEventListener('change', () => this.saveSettings());
+    }
 
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       this.handleMessage(message);
@@ -255,6 +273,9 @@ class PopupController {
     this.endPageInput.disabled = disabled;
     this.qualitySelect.disabled = disabled;
     this.readingDirectionRadios.forEach(radio => radio.disabled = disabled);
+    if (this.includeCoverCheckbox) {
+      this.includeCoverCheckbox.disabled = disabled;
+    }
   }
 
   async startCapture() {
@@ -264,6 +285,7 @@ class PopupController {
     const endPage = parseInt(this.endPageInput.value);
     const quality = parseFloat(this.qualitySelect.value);
     const readingDirection = this.getReadingDirection();
+    const includeCover = this.getIncludeCover();
 
     if (startPage > endPage) {
       this.setStatus('開始ページは終了ページ以下にしてください', 'error');
@@ -310,7 +332,8 @@ class PopupController {
           startPage,
           endPage,
           quality,
-          readingDirection
+          readingDirection,
+          includeCover
         }
       }, (response) => {
         if (chrome.runtime.lastError) {

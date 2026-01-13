@@ -602,18 +602,17 @@
     const info = getBookInfo();
     bookTitle = info.title;
 
-    const { startPage, endPage } = settings;
+    const { startPage, endPage, includeCover } = settings;
     const totalPages = endPage - startPage + 1;
 
-    console.log(`Capturing pages ${startPage} to ${endPage} (${totalPages} pages)`);
+    console.log(`Capturing pages ${startPage} to ${endPage} (${totalPages} pages), includeCover: ${includeCover}`);
 
     try {
-      // Navigate to start page first
-      if (startPage > 1) {
-        console.log('Navigating to start page:', startPage);
-        await navigateToPage(startPage);
-        await sleep(300);
-      }
+      // ALWAYS navigate to the correct start page
+      // This ensures we start from the right position regardless of current page
+      console.log('Navigating to start page:', startPage);
+      await navigateToStartPage(startPage, includeCover);
+      await sleep(500);
 
       let capturedCount = 0;
 
@@ -690,59 +689,94 @@
     shouldStop = true;
   }
 
-  async function navigateToPage(pageNumber) {
-    console.log(`Navigating to page ${pageNumber}`);
+  async function navigateToStartPage(startPage, includeCover) {
+    console.log(`Navigating to start page ${startPage}, includeCover: ${includeCover}`);
 
-    // Get current page
-    const currentInfo = getCurrentPageInfo();
-    if (currentInfo.current === pageNumber) {
-      console.log('Already on target page');
-      return;
+    // Step 1: Go to cover (beginning of the book) reliably
+    console.log('Step 1: Going to cover page...');
+    await goToCover();
+    await sleep(300);
+
+    // Step 2: Navigate to the correct start position
+    // Page numbering:
+    // - If includeCover is true:
+    //   Page 1 = Cover, Page 2 = Kindle page 1, Page 3 = Kindle page 2, etc.
+    //   So for startPage N, we need to go forward (N-1) times from cover
+    // - If includeCover is false:
+    //   Page 1 = Kindle page 1, Page 2 = Kindle page 2, etc.
+    //   So for startPage N, we need to go forward N times from cover (skip cover)
+
+    let forwardSteps;
+    if (includeCover) {
+      // Page 1 = cover, so for page N we go forward (N-1) times
+      forwardSteps = startPage - 1;
+    } else {
+      // Page 1 = Kindle page 1 (after cover), so for page N we go forward N times
+      forwardSteps = startPage;
     }
 
-    // Method 1: Find and use page input
-    const pageInput = document.querySelector('input[type="text"]');
-    if (pageInput && pageInput.offsetParent !== null) {
-      try {
-        pageInput.focus();
-        pageInput.select();
+    console.log(`Step 2: Going forward ${forwardSteps} pages from cover...`);
 
-        // Clear and set new value
-        pageInput.value = pageNumber.toString();
-        pageInput.dispatchEvent(new Event('input', { bubbles: true }));
-        pageInput.dispatchEvent(new Event('change', { bubbles: true }));
+    for (let i = 0; i < forwardSteps && !shouldStop; i++) {
+      await goToNextPage();
+      await sleep(150);
+    }
 
-        // Press Enter
-        pageInput.dispatchEvent(new KeyboardEvent('keydown', {
-          key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true
-        }));
-        pageInput.dispatchEvent(new KeyboardEvent('keyup', {
-          key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true
-        }));
+    console.log('Navigation complete');
+  }
 
-        await sleep(400);
-        return;
-      } catch (e) {
-        console.log('Page input failed:', e);
+  async function goToCover() {
+    // Reliably go to the cover (beginning) of the book
+    // Keep pressing prev until we can't go back anymore
+
+    console.log('Going to cover page...');
+
+    // Press prev key many times to ensure we reach the beginning
+    // Most books won't have more than 1000 pages, but we'll try up to 200 times
+    // with early exit if page stops changing
+    let lastPageInfo = null;
+    let samePageCount = 0;
+
+    for (let i = 0; i < 200 && !shouldStop; i++) {
+      await goToPrevPage();
+      await sleep(80);
+
+      // Check if we've reached the beginning
+      // If the page info stops changing for 3 consecutive attempts, we're at the cover
+      const currentInfo = getCurrentPageInfo();
+
+      if (lastPageInfo &&
+          lastPageInfo.current === currentInfo.current &&
+          lastPageInfo.total === currentInfo.total) {
+        samePageCount++;
+        if (samePageCount >= 3) {
+          console.log('Reached cover after', i + 1, 'presses');
+          break;
+        }
+      } else {
+        samePageCount = 0;
+      }
+
+      lastPageInfo = currentInfo;
+
+      // Progress log every 20 presses
+      if ((i + 1) % 20 === 0) {
+        console.log(`Still going back... ${i + 1} presses`);
       }
     }
 
-    // Method 2: Navigate sequentially
-    // First go to page 1
-    for (let i = 0; i < 50 && !shouldStop; i++) {
+    // Extra presses to make sure we're at the very beginning
+    for (let i = 0; i < 5 && !shouldStop; i++) {
       await goToPrevPage();
       await sleep(50);
-      const info = getCurrentPageInfo();
-      if (info.current === 1) break;
     }
 
-    await sleep(200);
+    console.log('At cover page');
+  }
 
-    // Then go forward to target page
-    for (let i = 1; i < pageNumber && !shouldStop; i++) {
-      await goToNextPage();
-      await sleep(100);
-    }
+  // Legacy function for backwards compatibility
+  async function navigateToPage(pageNumber) {
+    await navigateToStartPage(pageNumber, true);
   }
 
   async function goToNextPage() {
