@@ -603,34 +603,73 @@
     bookTitle = info.title;
 
     const { startPage, endPage, includeCover } = settings;
-    const totalPages = endPage - startPage + 1;
+    // startPage/endPage refer to Kindle page numbers (1 = first page after cover)
+    // includeCover adds cover as an extra page at the beginning
+    const contentPages = endPage - startPage + 1;
+    const totalPages = includeCover ? contentPages + 1 : contentPages;
 
-    console.log(`Capturing pages ${startPage} to ${endPage} (${totalPages} pages), includeCover: ${includeCover}`);
+    console.log(`Capturing Kindle pages ${startPage} to ${endPage} (${contentPages} pages), includeCover: ${includeCover}, total: ${totalPages}`);
 
     try {
-      // ALWAYS navigate to the correct start page
-      // This ensures we start from the right position regardless of current page
-      console.log('Navigating to start page:', startPage);
-      await navigateToStartPage(startPage, includeCover);
+      // Step 1: Go to cover
+      console.log('Step 1: Going to cover...');
+      await goToCover();
       await sleep(500);
 
       let capturedCount = 0;
+      let progressCount = 0;
 
-      for (let i = 0; i < totalPages && !shouldStop; i++) {
-        const targetPage = startPage + i;
-        console.log(`Capturing page ${targetPage} (${i + 1}/${totalPages})`);
+      // Step 2: If includeCover, capture cover first
+      if (includeCover && !shouldStop) {
+        console.log('Step 2: Capturing cover...');
+        progressCount++;
 
-        // Send progress update
         chrome.runtime.sendMessage({
           type: 'captureProgress',
-          current: i + 1,
+          current: progressCount,
           total: totalPages
         });
 
-        // Small wait for rendering
         await sleep(200);
 
-        // Take screenshot
+        try {
+          const screenshot = await captureScreenshot();
+          if (screenshot) {
+            screenshots.push(screenshot);
+            capturedCount++;
+            chrome.runtime.sendMessage({
+              type: 'screenshotCaptured',
+              data: screenshot
+            });
+          }
+        } catch (e) {
+          console.error('Cover screenshot failed:', e);
+        }
+      }
+
+      // Step 3: Navigate to startPage (Kindle page number)
+      // From cover, go forward startPage times to reach Kindle page startPage
+      console.log(`Step 3: Navigating to Kindle page ${startPage}...`);
+      for (let i = 0; i < startPage && !shouldStop; i++) {
+        await goToNextPage();
+        await sleep(150);
+      }
+      await sleep(300);
+
+      // Step 4: Capture from startPage to endPage
+      console.log(`Step 4: Capturing pages ${startPage} to ${endPage}...`);
+      for (let page = startPage; page <= endPage && !shouldStop; page++) {
+        progressCount++;
+        console.log(`Capturing Kindle page ${page} (${progressCount}/${totalPages})`);
+
+        chrome.runtime.sendMessage({
+          type: 'captureProgress',
+          current: progressCount,
+          total: totalPages
+        });
+
+        await sleep(200);
+
         try {
           const screenshot = await captureScreenshot();
           if (screenshot) {
@@ -646,13 +685,8 @@
         }
 
         // Navigate to next page if not the last one
-        if (i < totalPages - 1 && !shouldStop) {
-          console.log('Going to next page...');
-          const success = await goToNextPage();
-          if (!success) {
-            console.log('Page navigation may have failed, continuing anyway');
-          }
-          // Wait for page transition
+        if (page < endPage && !shouldStop) {
+          await goToNextPage();
           await sleep(250);
         }
       }
