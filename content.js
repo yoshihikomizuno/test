@@ -1,4 +1,4 @@
-// Content script for Kindle Auto Screenshot extension
+// Content script for Kindle to PDF extension
 // This script runs on Kindle Cloud Reader pages
 
 (function() {
@@ -747,57 +747,31 @@
 
   async function goToNextPage() {
     // Determine direction based on reading direction setting
-    // Vertical (縦書き): next page is on the LEFT
-    // Horizontal (横書き): next page is on the RIGHT
+    // Vertical (縦書き): next page is on the LEFT (ArrowLeft)
+    // Horizontal (横書き): next page is on the RIGHT (ArrowRight)
     const isVertical = settings.readingDirection === 'vertical';
+    const arrowKey = isVertical ? 'ArrowLeft' : 'ArrowRight';
 
-    // Try multiple methods in parallel for speed
+    console.log('goToNextPage - direction:', settings.readingDirection, ', key:', arrowKey);
 
-    // Method 1: Find and click the appropriate arrow/next button
-    const nextButton = isVertical ? findLeftButton() : findRightButton();
-    if (nextButton) {
-      console.log('Clicking next button (direction:', settings.readingDirection, ')');
-      nextButton.click();
-      return true;
-    }
-
-    // Method 2: Simulate keyboard arrow key
-    console.log('Using keyboard navigation (direction:', settings.readingDirection, ')');
-    if (isVertical) {
-      simulateKeyPress('ArrowLeft', 37);
-    } else {
-      simulateKeyPress('ArrowRight', 39);
-    }
-
-    // Method 3: Click on the appropriate side of the reader
-    if (isVertical) {
-      clickOnLeftSide();
-    } else {
-      clickOnRightSide();
-    }
+    // Use keyboard navigation (works even when UI is visible)
+    await navigateWithKeyboard(arrowKey);
 
     return true;
   }
 
   async function goToPrevPage() {
     // Determine direction based on reading direction setting
-    // Vertical (縦書き): prev page is on the RIGHT
-    // Horizontal (横書き): prev page is on the LEFT
+    // Vertical (縦書き): prev page is on the RIGHT (ArrowRight)
+    // Horizontal (横書き): prev page is on the LEFT (ArrowLeft)
     const isVertical = settings.readingDirection === 'vertical';
+    const arrowKey = isVertical ? 'ArrowRight' : 'ArrowLeft';
 
-    // Find and click the appropriate arrow/prev button
-    const prevButton = isVertical ? findRightButton() : findLeftButton();
-    if (prevButton) {
-      prevButton.click();
-      return true;
-    }
+    console.log('goToPrevPage - direction:', settings.readingDirection, ', key:', arrowKey);
 
-    // Keyboard arrow key (opposite of next)
-    if (isVertical) {
-      simulateKeyPress('ArrowRight', 39);
-    } else {
-      simulateKeyPress('ArrowLeft', 37);
-    }
+    // Use keyboard navigation (works even when UI is visible)
+    await navigateWithKeyboard(arrowKey);
+
     return true;
   }
 

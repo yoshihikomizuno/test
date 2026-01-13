@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Kindle Auto Screenshot to PDF",
-  "version": "1.0.0",
+  "name": "Kindle to PDF",
+  "version": "1.1.0",
   "description": "KindleのWeb版で開いた書籍を自動ページ送りしてスクリーンショットを撮影し、PDFとして保存します",
   "permissions": [
     "activeTab",
