@@ -731,15 +731,16 @@
 
     console.log('Going to cover page...');
 
-    // Press prev key many times to ensure we reach the beginning
-    // Most books won't have more than 1000 pages, but we'll try up to 200 times
-    // with early exit if page stops changing
+    // Press prev key until the page stops changing
+    // No max limit - rely only on early exit condition
     let lastPageInfo = null;
     let samePageCount = 0;
+    let pressCount = 0;
 
-    for (let i = 0; i < 200 && !shouldStop; i++) {
+    while (!shouldStop) {
       await goToPrevPage();
       await sleep(80);
+      pressCount++;
 
       // Check if we've reached the beginning
       // If the page info stops changing for 3 consecutive attempts, we're at the cover
@@ -750,7 +751,7 @@
           lastPageInfo.total === currentInfo.total) {
         samePageCount++;
         if (samePageCount >= 3) {
-          console.log('Reached cover after', i + 1, 'presses');
+          console.log('Reached cover after', pressCount, 'presses');
           break;
         }
       } else {
@@ -759,9 +760,9 @@
 
       lastPageInfo = currentInfo;
 
-      // Progress log every 20 presses
-      if ((i + 1) % 20 === 0) {
-        console.log(`Still going back... ${i + 1} presses`);
+      // Progress log every 50 presses
+      if (pressCount % 50 === 0) {
+        console.log(`Still going back... ${pressCount} presses`);
       }
     }
 
