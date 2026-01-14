@@ -1,6 +1,6 @@
 # プライバシーポリシー
 
-最終更新日: 2025年1月14日
+最終更新日: 2026年1月14日
 
 ## はじめに
 
@@ -78,4 +78,4 @@
 
 ---
 
-© 2025 Kindle to PDF Extension
+© 2026 Kindle to PDF Extension
