@@ -451,21 +451,27 @@ class PopupController {
       return;
     }
 
-    chrome.runtime.sendMessage({
-      action: 'estimatePDFSize',
-      screenshots: this.screenshots
-    }, (response) => {
-      if (response && response.success) {
-        const sizeBytes = response.size;
-        const sizeStr = this.formatFileSize(sizeBytes);
-        this.estimatedSizeEl.textContent = sizeStr;
-        this.fileSizeContainer.style.display = 'block';
+    const sizeBytes = this.estimatePDFSize(this.screenshots);
+    const sizeStr = this.formatFileSize(sizeBytes);
+    this.estimatedSizeEl.textContent = sizeStr;
+    this.fileSizeContainer.style.display = 'block';
 
-        if (this.screenshots.length > 0) {
-          this.avgPageSizeBytes = Math.round(sizeBytes / this.screenshots.length);
-        }
-      }
-    });
+    if (this.screenshots.length > 0) {
+      this.avgPageSizeBytes = Math.round(sizeBytes / this.screenshots.length);
+    }
+  }
+
+  estimatePDFSize(screenshots) {
+    if (!screenshots || screenshots.length === 0) return 0;
+
+    let totalSize = 0;
+    for (const screenshot of screenshots) {
+      const base64Part = screenshot.split(',')[1] || '';
+      totalSize += (base64Part.length * 3) / 4;
+    }
+
+    // PDF overhead is roughly 10-15% additional
+    return Math.round(totalSize * 1.12);
   }
 
   formatFileSize(bytes) {
@@ -497,23 +503,78 @@ class PopupController {
     this.downloadBtn.disabled = true;
 
     try {
-      chrome.runtime.sendMessage({
-        action: 'generatePDF',
-        screenshots: this.screenshots,
-        bookTitle: this.bookTitle
-      }, (response) => {
-        if (response && response.success) {
-          this.setStatus('PDFをダウンロードしました！', 'success');
-        } else {
-          this.setStatus('PDF生成エラー: ' + (response?.error || '不明なエラー'), 'error');
-        }
-        this.downloadBtn.disabled = false;
-      });
+      await this.generatePDF(this.screenshots, this.bookTitle);
+      this.setStatus('PDFをダウンロードしました！', 'success');
     } catch (error) {
       console.error('PDF generation error:', error);
       this.setStatus('PDF生成エラー: ' + error.message, 'error');
+    } finally {
       this.downloadBtn.disabled = false;
     }
+  }
+
+  async generatePDF(screenshots, bookTitle) {
+    if (!screenshots || screenshots.length === 0) {
+      throw new Error('No screenshots to convert');
+    }
+
+    // Get image dimensions from first screenshot
+    const firstImage = await this.getImageDimensions(screenshots[0]);
+    const imgWidth = firstImage.width;
+    const imgHeight = firstImage.height;
+
+    // Calculate PDF dimensions (in mm)
+    const pdfWidth = 210;
+    const pdfHeight = (imgHeight / imgWidth) * pdfWidth;
+
+    // Create PDF with custom page size
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({
+      orientation: imgWidth > imgHeight ? 'landscape' : 'portrait',
+      unit: 'mm',
+      format: [pdfWidth, pdfHeight]
+    });
+
+    // Set PDF metadata
+    pdf.setProperties({
+      title: bookTitle || 'Kindle Screenshot',
+      creator: 'Kindle to PDF Extension'
+    });
+
+    for (let i = 0; i < screenshots.length; i++) {
+      if (i > 0) {
+        pdf.addPage([pdfWidth, pdfHeight]);
+      }
+
+      const imgData = screenshots[i];
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+    }
+
+    // Generate filename
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const safeTitle = bookTitle ? bookTitle.replace(/[<>:"/\\|?*]/g, '_').slice(0, 50) : 'kindle-screenshot';
+    const filename = `${safeTitle}-${timestamp}.pdf`;
+
+    // Download using chrome.downloads API
+    const pdfDataUri = pdf.output('datauristring');
+    await chrome.downloads.download({
+      url: pdfDataUri,
+      filename: filename,
+      saveAs: true
+    });
+  }
+
+  async getImageDimensions(dataUrl) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        resolve({ width: img.width, height: img.height });
+      };
+      img.onerror = () => {
+        resolve({ width: 1920, height: 1080 });
+      };
+      img.src = dataUrl;
+    });
   }
 }
 
