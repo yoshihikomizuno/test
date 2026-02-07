@@ -657,10 +657,22 @@
       await sleep(300);
 
       // Step 4: Capture from startPage to endPage
+      // Use actual Kindle page numbers instead of loop counter to handle page skipping
       console.log(`Step 4: Capturing pages ${startPage} to ${endPage}...`);
-      for (let page = startPage; page <= endPage && !shouldStop; page++) {
+
+      let lastKindlePage = -1;
+      let samePageCount = 0;
+      const MAX_SAME_PAGE = 3; // Stop if page doesn't change 3 times in a row
+
+      while (!shouldStop) {
+        // Get current Kindle page number
+        triggerUIDisplay();
+        await sleep(100);
+        const pageInfo = getCurrentPageInfo();
+        const currentKindlePage = pageInfo.current;
+
         progressCount++;
-        console.log(`Capturing Kindle page ${page} (${progressCount}/${totalPages})`);
+        console.log(`Capturing: Kindle page ${currentKindlePage || '?'} (capture #${progressCount}, target end: ${endPage})`);
 
         chrome.runtime.sendMessage({
           type: 'captureProgress',
@@ -684,10 +696,39 @@
           console.error('Screenshot failed:', e);
         }
 
-        // Navigate to next page if not the last one
-        if (page < endPage && !shouldStop) {
-          await goToNextPage();
-          await sleep(250);
+        // Check if we've reached or exceeded the end page
+        if (currentKindlePage && currentKindlePage >= endPage) {
+          console.log(`Reached end page: current=${currentKindlePage}, target=${endPage}`);
+          break;
+        }
+
+        // Navigate to next page
+        await goToNextPage();
+        await sleep(300);
+
+        // Check if we've reached the last page (page didn't change)
+        triggerUIDisplay();
+        await sleep(100);
+        const newPageInfo = getCurrentPageInfo();
+        const newKindlePage = newPageInfo.current;
+
+        if (newKindlePage && lastKindlePage === newKindlePage) {
+          samePageCount++;
+          console.log(`Page didn't change (${samePageCount}/${MAX_SAME_PAGE}): still on page ${newKindlePage}`);
+          if (samePageCount >= MAX_SAME_PAGE) {
+            console.log('Reached last page of book (no more pages to turn)');
+            break;
+          }
+        } else {
+          samePageCount = 0;
+        }
+
+        lastKindlePage = newKindlePage || lastKindlePage;
+
+        // Safety check: if we've captured more than expected, something is wrong
+        if (progressCount > totalPages + 10) {
+          console.log('Safety limit reached, stopping capture');
+          break;
         }
       }
 
