@@ -586,6 +586,47 @@
     return { current, total };
   }
 
+  async function activateReader() {
+    // Activate the Kindle reader by simulating user interaction
+    // This is needed because the reader doesn't respond to keyboard events
+    // until it has received some form of user interaction
+    console.log('Activating reader...');
+
+    const isVertical = settings.readingDirection === 'vertical';
+
+    // Step 1: Click on the center to focus the reader
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight / 2;
+    const centerElement = document.elementFromPoint(centerX, centerY);
+    if (centerElement) {
+      console.log('Clicking center to focus reader');
+      centerElement.click();
+    }
+    await sleep(300);
+
+    // Step 2: Click on navigation area to trigger one page turn (activates keyboard listener)
+    // For vertical (縦書き): click left to go forward, then right to go back
+    // For horizontal (横書き): click right to go forward, then left to go back
+    console.log('Performing click navigation to activate reader...');
+
+    if (isVertical) {
+      clickOnLeftSide();  // Forward for vertical
+      await sleep(400);
+      clickOnRightSide(); // Back for vertical
+    } else {
+      clickOnRightSide(); // Forward for horizontal
+      await sleep(400);
+      clickOnLeftSide();  // Back for horizontal
+    }
+    await sleep(400);
+
+    // Step 3: Focus on reader again
+    focusOnReader();
+    await sleep(200);
+
+    console.log('Reader activation complete');
+  }
+
   async function startCapture(captureSettings) {
     console.log('Starting capture with settings:', captureSettings);
 
@@ -611,6 +652,10 @@
     console.log(`Capturing Kindle pages ${startPage} to ${endPage} (${contentPages} pages), includeCover: ${includeCover}, total: ${totalPages}`);
 
     try {
+      // Step 0: Activate reader (ensures keyboard navigation works)
+      console.log('Step 0: Activating reader...');
+      await activateReader();
+
       // Step 1: Go to cover
       console.log('Step 1: Going to cover...');
       await goToCover();
