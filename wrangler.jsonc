@@ -1,0 +1,12 @@
+{
+  // Cloudflare Workers (静的アセット配信) 設定
+  // リポジトリのルートをそのまま静的サイトとして配信する。
+  // 例: /                     -> index.html (プレビュー一覧)
+  //     /mazareal-kids-game/  -> mazareal-kids-game/index.html
+  // ※ name は Cloudflare のプロジェクト名と一致させること。
+  "name": "test",
+  "compatibility_date": "2025-06-01",
+  "assets": {
+    "directory": "./"
+  }
+}
