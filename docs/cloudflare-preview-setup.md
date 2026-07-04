@@ -26,8 +26,14 @@
 ## 2. 日々の使い方
 
 ### 制作物を更新したいとき
-`main` に変更が入ると、Cloudflareが自動でビルド＆デプロイ（1〜2分）。
-→ **同じURLを開き直すだけ**で最新になります（`git pull` もCloudflare操作も不要）。
+どのブランチに push しても Cloudflare が自動でビルド＆デプロイ（1〜2分）。
+- **制作中ブランチのまま確認**：`https://<ブランチ名>-test.mazareal.workers.dev/<フォルダ>/`（mainへのマージ不要）
+- **確定版**：`main` にマージ → 本番URL `https://test.mazareal.workers.dev/<フォルダ>/` が更新
+→ いずれも **同じURLを開き直すだけ**で最新になります（`git pull` もCloudflare操作も不要）。
+
+> 🔒 プレビューURLも非公開にすること：Worker の「ドメイン」設定で
+> **プロダクション**と**プレビュー（`*-test.mazareal.workers.dev`）の両方を「制限」**にする。
+> プレビューを「公開」のままにすると、ブランチ/コミットのURLがサインイン不要で見えてしまう。
 
 ### 新しい案件を追加するとき
 1. `bash scripts/new-preview-project.sh <フォルダ名> "表示名"` で雛形作成

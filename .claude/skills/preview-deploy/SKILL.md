@@ -38,10 +38,14 @@ description: 制作中の静的サイト(HTML/CSS/JS)を「一般非公開のま
 ### A. 既存案件を更新してプレビューに反映
 
 1. 対象フォルダを編集（可能なら Chromium でレンダリング確認）。
-2. `main` に push する（このセッションの designated ブランチが main でない場合は、変更を main に反映する＝PRをマージ、または main に直接コミット）。
-3. **1〜2分で `https://test.mazareal.workers.dev/<フォルダ>/` が最新化**。ユーザーには「同じURLを開き直すだけ」と伝える。URLは不変。
+2. **制作中ブランチに push する**（main へ入れる必要はない）。
+3. **各ブランチに固定のブランチプレビューURLが付く**：
+   `https://<ブランチ名>-test.mazareal.workers.dev/<フォルダ>/`
+   （例 `claude-mazareal-game-service-page-cooc4z-test.mazareal.workers.dev`）。1〜2分で最新化。
+   → **main にマージしなくても、そのブランチのURLで確認できる**。日々の確認はこれが便利。
+4. 確定したら `main` にマージ → 本番URL `https://test.mazareal.workers.dev/<フォルダ>/` が更新される。
 
-> 補足：制作中ブランチを push すると、Cloudflareは `<version>-test.mazareal.workers.dev` という**バージョン別の一時URL**も作る。恒久リンクは main→本番URL。
+> URL種別：本番 = `test.mazareal.workers.dev`（mainの内容）／ブランチ = `<branch>-test.mazareal.workers.dev`／コミット単位 = `<hash>-test.mazareal.workers.dev`。
 
 ### B. 新しい制作案件を追加
 
@@ -51,6 +55,11 @@ description: 制作中の静的サイト(HTML/CSS/JS)を「一般非公開のま
 4. 新フォルダは**既定で非公開**（ドメイン全体がAccess制限のため）。公開したい場合は下記「公開/非公開の管理」を参照。
 
 ## 公開/非公開の管理（フォルダ単位で混在可）
+
+**重要（プレビューURLの非公開化）**：Worker の「ドメイン」設定には
+**プロダクション**（`test.mazareal.workers.dev`）と**プレビュー**（`*-test.mazareal.workers.dev`）の
+2系統がある。**両方とも「制限」にする**こと。プレビュー側を「公開」のままにすると、
+ブランチ/コミットのプレビューURLがサインイン不要で見えてしまう。
 
 ドメイン全体は既定で「制限（非公開）」。**パス単位のAccessアプリ**で例外を作る。
 Cloudflareは**より細かいパス指定のアプリを優先**する。
