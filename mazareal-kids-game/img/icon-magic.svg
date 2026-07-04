@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="魔法の水晶玉">
+  <!-- 羊皮紙タイル -->
+  <rect x="3" y="3" width="114" height="114" rx="9" fill="#e9ddc0" stroke="#6b4f2a" stroke-width="2.5"/>
+  <rect x="9" y="9" width="102" height="102" rx="6" fill="none" stroke="#6b4f2a" stroke-width="1.4" opacity="0.7"/>
+  <g stroke="#6b4f2a" stroke-width="1.6" stroke-linecap="round" opacity="0.75">
+    <path d="M15 20 L15 15 L20 15 M105 20 L105 15 L100 15 M15 100 L15 105 L20 105 M105 100 L105 105 L100 105"/>
+  </g>
+  <!-- 台座 -->
+  <path d="M40 88 L80 88 L74 96 L46 96 Z" fill="#e6d3a8" stroke="#3f2d18" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M46 84 C46 80 74 80 74 84 C74 90 46 90 46 84 Z" fill="#d9bf85" stroke="#3f2d18" stroke-width="2.6" stroke-linejoin="round"/>
+  <!-- 水晶玉 -->
+  <circle cx="60" cy="56" r="24" fill="#efe3c6" stroke="#3f2d18" stroke-width="3"/>
+  <!-- 玉のハイライト -->
+  <path d="M50 46 C46 50 45 57 48 63" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+  <path d="M55 42 C53 43 51 45 50 47" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity="0.7"/>
+  <!-- きらめき -->
+  <g fill="#8a6a3f" stroke="#3f2d18" stroke-width="1" stroke-linejoin="round">
+    <path d="M28 34 L30 40 L36 42 L30 44 L28 50 L26 44 L20 42 L26 40 Z"/>
+    <path d="M92 44 L93.5 48.5 L98 50 L93.5 51.5 L92 56 L90.5 51.5 L86 50 L90.5 48.5 Z"/>
+    <path d="M86 78 L87.2 81.5 L91 82.7 L87.2 84 L86 87.5 L84.8 84 L81 82.7 L84.8 81.5 Z"/>
+  </g>
+</svg>

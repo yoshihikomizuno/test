@@ -542,7 +542,15 @@ em { font-style: normal; }
   transition: transform .2s ease;
 }
 .empathy-card:hover { transform: translateY(-6px); }
-.empathy-icon { font-size: 40px; display: block; margin-bottom: 14px; }
+.empathy-icon {
+  display: block;
+  width: 112px;
+  height: 112px;
+  margin: 0 auto 16px;
+  image-rendering: auto;
+  transition: transform .25s ease;
+}
+.empathy-card:hover .empathy-icon { transform: rotate(-3deg) scale(1.05); }
 .empathy-card h3 { font-family: var(--font-pixel); font-size: 18px; line-height: 1.6; margin-bottom: 12px; }
 .empathy-card p { font-size: 14px; text-align: left; }
 
@@ -614,16 +622,17 @@ em { font-style: normal; }
   counter-reset: step;
   position: relative;
 }
-.flow-list::before {
-  content: "";
-  position: absolute;
-  top: 20px; bottom: 20px; left: 27px;
-  width: 6px;
-  background: repeating-linear-gradient(180deg, var(--green) 0 12px, transparent 12px 22px);
-}
 .flow-step {
   position: relative;
   padding: 0 0 44px 84px;
+}
+/* 縦の破線コネクタ: 各ステップの背景として、バッジの下から次ステップまで描画。
+   最後(STEP4)には引かないので、線が④のアイコンを突き抜けない */
+.flow-step:not(:last-child) {
+  background-image: repeating-linear-gradient(180deg, var(--green) 0 12px, transparent 12px 22px);
+  background-repeat: no-repeat;
+  background-position: 27px 50px;
+  background-size: 6px calc(100% - 50px);
 }
 .flow-step::before {
   content: "";
@@ -645,7 +654,10 @@ em { font-style: normal; }
   place-items: center;
   font-family: var(--font-pixel);
   font-size: 22px;
+  line-height: 1;
   color: var(--night);
+  /* ドット絵書体の字形が左上に寄るため、視覚的な中央へ微調整 */
+  transform: translate(1px, 2px);
 }
 .flow-badge {
   font-family: var(--font-pixel);
@@ -714,6 +726,42 @@ em { font-style: normal; }
 .price-features li { padding-left: 1.5em; position: relative; margin-bottom: 8px; }
 .price-features li::before { content: "★"; position: absolute; left: 0; color: var(--yellow); }
 .price-note { font-size: 12.5px; opacity: .8; }
+
+/* オプション */
+.price-options {
+  max-width: 680px;
+  margin: 44px auto 0;
+  background: var(--cream);
+  border: 3px dashed var(--night);
+  border-radius: var(--radius);
+  padding: 28px 30px;
+}
+.price-options-title {
+  font-family: var(--font-pixel);
+  font-size: 18px;
+  text-align: center;
+  margin-bottom: 18px;
+}
+.price-options-title span { color: var(--pink); }
+.price-options-list { display: grid; gap: 12px; }
+.price-options-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px dotted rgba(51, 48, 74, .25);
+  font-size: 14.5px;
+}
+.price-options-list li:last-child { border-bottom: none; padding-bottom: 0; }
+.opt-name { font-weight: 500; }
+.opt-price {
+  flex-shrink: 0;
+  font-family: var(--font-pixel);
+  font-size: 18px;
+  color: var(--pink);
+}
+
 .price-caption { text-align: center; font-size: 13px; margin-top: 36px; opacity: .75; }
 
 /* ------------------------------------------------------------
