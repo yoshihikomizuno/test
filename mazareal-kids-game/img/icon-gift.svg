@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="リボンのかかった贈りもの">
+  <!-- 羊皮紙タイル -->
+  <rect x="3" y="3" width="114" height="114" rx="9" fill="#e9ddc0" stroke="#6b4f2a" stroke-width="2.5"/>
+  <rect x="9" y="9" width="102" height="102" rx="6" fill="none" stroke="#6b4f2a" stroke-width="1.4" opacity="0.7"/>
+  <g stroke="#6b4f2a" stroke-width="1.6" stroke-linecap="round" opacity="0.75">
+    <path d="M15 20 L15 15 L20 15 M105 20 L105 15 L100 15 M15 100 L15 105 L20 105 M105 100 L105 105 L100 105"/>
+  </g>
+  <!-- 箱本体 -->
+  <rect x="34" y="58" width="52" height="36" rx="2" fill="#efe3c6" stroke="#3f2d18" stroke-width="3" stroke-linejoin="round"/>
+  <!-- ふた -->
+  <rect x="29" y="47" width="62" height="15" rx="2" fill="#e6d3a8" stroke="#3f2d18" stroke-width="3" stroke-linejoin="round"/>
+  <!-- 縦リボン -->
+  <rect x="53" y="47" width="14" height="47" fill="#d9bf85" stroke="#3f2d18" stroke-width="2.4" stroke-linejoin="round"/>
+  <!-- ちょう結び -->
+  <g fill="#e6d3a8" stroke="#3f2d18" stroke-width="2.6" stroke-linejoin="round">
+    <path d="M60 46 C50 33 38 39 43 46 C46 50 54 48 60 46 Z"/>
+    <path d="M60 46 C70 33 82 39 77 46 C74 50 66 48 60 46 Z"/>
+  </g>
+  <circle cx="60" cy="46" r="4.5" fill="#d9bf85" stroke="#3f2d18" stroke-width="2.4"/>
+</svg>
