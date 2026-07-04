@@ -1,6 +1,6 @@
 ---
 name: preview-deploy
-description: 制作中の静的サイト(HTML/CSS/JS)を「一般非公開のまま」Cloudflareでプレビューするための運用スキル。ユーザーが「プレビューを見たい/更新して/デプロイして/確認用URLを最新にして」「新しい制作案件をプレビューに追加したい」「このフォルダだけ公開/非公開にしたい」と言ったときに使う。案件ごとのCloudflare設定は不要で、リポジトリ直下にフォルダを置いて main にpushするだけで自動デプロイされる。ユーザーはCloudflareを触らず・git pullもせず、非公開URLを開くだけでよい状態を保つのが目的。
+description: 制作中の静的サイト(HTML/CSS/JS)をCloudflareで手早くプレビューするための運用スキル。ユーザーが「プレビューを見たい/更新して/デプロイして/確認用URLを最新にして」「新しい制作案件をプレビューに追加したい」「このフォルダだけ公開/非公開にしたい」と言ったときに使う。案件ごとのCloudflare設定は不要で、リポジトリ直下にフォルダを置いてpushするだけで自動デプロイされる。既定はすべて公開・必要なものだけAccessで非公開にする運用。ユーザーはCloudflareを触らず・git pullもせず、URLを開くだけでよい状態を保つのが目的。
 ---
 
 # preview-deploy — 非公開プレビュー運用スキル
@@ -16,7 +16,7 @@ description: 制作中の静的サイト(HTML/CSS/JS)を「一般非公開のま
 | Worker 名 | **`test`** |
 | ベースURL | **`https://test.mazareal.workers.dev/`** |
 | 各案件のURL | `https://test.mazareal.workers.dev/<フォルダ名>/` |
-| 非公開化 | **Cloudflare Access**。ドメイン全体が「制限（サインイン必須）」＝**既定で全案件が非公開** |
+| 公開/非公開 | **既定はすべて公開**。非公開にしたいフォルダだけ **Cloudflare Access（パス単位）** でサインイン必須にする |
 | 設定ファイル | ルートの `wrangler.jsonc`（assets: `./`）、`.assetsignore`（`.git` 等を除外） |
 
 デプロイの流れ：
@@ -52,25 +52,26 @@ description: 制作中の静的サイト(HTML/CSS/JS)を「一般非公開のま
 1. スキャフォルド：`bash scripts/new-preview-project.sh <フォルダ名> "表示名"`
 2. ルート `index.html` にカードを1枚追記（`data-project` の `<article>` を複製して中身を差し替え）。
 3. `main` に push。**Cloudflareの追加設定は不要**。数分後 `https://test.mazareal.workers.dev/<フォルダ名>/` で見られる。
-4. 新フォルダは**既定で非公開**（ドメイン全体がAccess制限のため）。公開したい場合は下記「公開/非公開の管理」を参照。
+4. 新フォルダは**既定で公開**。非公開にしたい場合のみ下記「公開/非公開の管理」を参照。
 
-## 公開/非公開の管理（フォルダ単位で混在可）
+## 公開/非公開の管理（既定＝公開。必要なものだけ非公開）
 
-**重要（プレビューURLの非公開化）**：Worker の「ドメイン」設定には
-**プロダクション**（`test.mazareal.workers.dev`）と**プレビュー**（`*-test.mazareal.workers.dev`）の
-2系統がある。**両方とも「制限」にする**こと。プレビュー側を「公開」のままにすると、
-ブランチ/コミットのプレビューURLがサインイン不要で見えてしまう。
-
-ドメイン全体は既定で「制限（非公開）」。**パス単位のAccessアプリ**で例外を作る。
+**方針：既定はすべて公開**（本番URLも、ブランチ/コミットのプレビューURLも、サインイン不要で閲覧可）。
+**非公開にしたいフォルダだけ**、Cloudflare Access のパス単位アプリでサインイン必須にする。
 Cloudflareは**より細かいパス指定のアプリを優先**する。
 
-- **特定フォルダだけ公開**：Zero Trust → Access → Applications → Add application → Self-hosted →
-  domain `test.mazareal.workers.dev` / path `<フォルダ名>` → Policy **Action: Bypass / Include: Everyone**。
-- **特定フォルダだけ非公開（他は公開の場合）**：同様に対象パスへ **Action: Allow / Include: Emails**（許可メール）。
-- **閲覧できる人を増やす**：既定アプリのポリシーの Emails に追加、または **Emails ending in `@mazareal.co.jp`** で社内一括許可。
+- **特定フォルダだけ非公開にする**：Zero Trust → Access → Applications → Add application → Self-hosted →
+  Application domain `test.mazareal.workers.dev` / Path `<フォルダ名>` →
+  Policy **Action: Allow / Include: Emails**（許可メール。`Emails ending in @mazareal.co.jp` で社内一括も可）。
+  → そのフォルダはサインイン必須、それ以外は公開のまま。
+- **ブランチ/コミットのプレビューURLでも同じパスを非公開にしたい場合**：プレビューは別ホスト
+  （`<branch>-test.mazareal.workers.dev`）なので、Application domain を **`*-test.mazareal.workers.dev`**（ワイルドカード）
+  にした同内容のアプリも追加する。
+- **運用を「基本非公開」に戻したい場合**：Worker の「ドメイン」設定で本番・プレビューを「制限」にし、
+  公開したいパスに **Action: Bypass / Include: Everyone** を付ける（＝逆の設計）。
 
 > ⚠️ これらのCloudflare側操作（Access・サブドメイン等）は **この実行環境からはAPIが遮断**されていて実行できない（api.cloudflare.com が 403）。
-> 手順を提示して**ユーザーにダッシュボードで操作してもらう**か、ユーザーのPCで叩く**cURLコマンドを渡す**こと。
+> 手順を提示して**ユーザーにダッシュボードで操作してもらう**こと。
 
 ## 初回セットアップ（済み）
 

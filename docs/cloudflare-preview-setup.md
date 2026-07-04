@@ -15,8 +15,8 @@
 | ベースURL（一覧） | **https://test.mazareal.workers.dev/** |
 | 各案件のURL | `https://test.mazareal.workers.dev/<フォルダ名>/` |
 | 例：うちの子クエスト | https://test.mazareal.workers.dev/mazareal-kids-game/ |
-| 非公開化 | Cloudflare Access（ドメイン全体が「制限」＝サインイン必須） |
-| 閲覧許可 | `3aidmz@gmail.com`（Zero Trust → Access で管理） |
+| 公開/非公開 | **既定はすべて公開**。非公開にしたいフォルダだけ Cloudflare Access（パス単位）でサインイン必須にする |
+| 非公開時の許可メール | `3aidmz@gmail.com` ／ `@mazareal.co.jp`（Zero Trust → Access で管理） |
 
 - 各案件は**リポジトリ直下のフォルダ**。ルートの `index.html` が一覧ダッシュボード。
 - ルートの `wrangler.jsonc`（assets: `./`）と `.assetsignore`（`.git` 等を除外）で配信を制御。
@@ -31,9 +31,8 @@
 - **確定版**：`main` にマージ → 本番URL `https://test.mazareal.workers.dev/<フォルダ>/` が更新
 → いずれも **同じURLを開き直すだけ**で最新になります（`git pull` もCloudflare操作も不要）。
 
-> 🔒 プレビューURLも非公開にすること：Worker の「ドメイン」設定で
-> **プロダクション**と**プレビュー（`*-test.mazareal.workers.dev`）の両方を「制限」**にする。
-> プレビューを「公開」のままにすると、ブランチ/コミットのURLがサインイン不要で見えてしまう。
+> 方針：**既定はすべて公開**（本番・プレビュー・ブランチURLともサインイン不要で閲覧可）。
+> 非公開にしたいフォルダだけ、§3 の手順で Access をかける。
 
 ### 新しい案件を追加するとき
 1. `bash scripts/new-preview-project.sh <フォルダ名> "表示名"` で雛形作成
@@ -43,21 +42,25 @@
 
 ---
 
-## 3. 公開/非公開の管理
+## 3. 公開/非公開の管理（既定＝公開。必要なものだけ非公開）
 
-ドメイン全体は既定で「制限（非公開）」＝**新しいフォルダも自動的に非公開**。
-フォルダ単位で公開/非公開を混在させたいときは、**パス単位のAccessアプリ**を追加します
-（Cloudflareは細かいパス指定のルールを優先します）。
+**既定はすべて公開**（本番URL・プレビュー/ブランチURLとも、サインイン不要で閲覧可）。
+**新しいフォルダも自動的に公開**になります。非公開にしたいフォルダだけ、
+**パス単位のAccessアプリ**でサインイン必須にします（Cloudflareは細かいパス指定を優先）。
 
-### 特定フォルダだけ「公開」にする
+### 特定フォルダだけ「非公開」にする
 1. **Zero Trust → Access → Applications → Add an application → Self-hosted**
 2. Application domain: `test.mazareal.workers.dev` / Path: `<フォルダ名>`
-3. Policy: **Action = Bypass**、**Include = Everyone**
-4. 保存 → そのフォルダだけ全員閲覧可、他は非公開のまま
+3. Policy: **Action = Allow**、**Include = Emails**（許可メール）
+   - 社内一括なら **Emails ending in `@mazareal.co.jp`**
+4. 保存 → そのフォルダだけサインイン必須、他は公開のまま
 
-### 閲覧できる人を増やす
-- 既定アプリのポリシーの **Emails** にアドレスを追加、または
-- **Emails ending in `@mazareal.co.jp`** で社内ドメインを一括許可
+> ブランチ/コミットのプレビューURL（`<branch>-test.mazareal.workers.dev`）でも同じパスを非公開にしたい場合は、
+> Application domain を **`*-test.mazareal.workers.dev`**（ワイルドカード）にした同内容のアプリも追加します。
+
+### 逆に「基本は非公開」に戻したいとき
+Worker の「ドメイン」設定で本番・プレビューを「制限」にし、公開したいパスに
+**Action = Bypass / Everyone** を付ける（＝今と逆の設計）。
 
 ---
 
@@ -74,7 +77,9 @@
    ```
    （トークンは「Edit Cloudflare Workers」テンプレートで作成。使用後は失効させる）
 4. **本番URL有効化**：Worker `test` → ドメイン → 「プロダクション」トグルON
-5. **非公開化**：同画面のアクセスを「制限」に → Zero Trust → Access で `3aidmz@gmail.com` を許可
+5. **アクセス方針**：当初は全体を「制限（非公開）」にして `3aidmz@gmail.com` を許可 →
+   その後、運用方針を **「既定は公開・必要なものだけ非公開」** に変更（本番URLを公開に戻した）。
+   非公開にしたいフォルダは §3 の手順で個別に Access をかける。
 
 > ⚠️ Cloudflare API はこの制作環境（Claude Code）からは遮断されている（api.cloudflare.com が 403）。
 > Cloudflare側の操作は、ダッシュボードで行うか、ユーザーのPCで cURL を実行する。
