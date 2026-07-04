@@ -1,0 +1,7 @@
+# Cloudflare Workers の静的アセット配信から除外するファイル
+# (gitignore と同じ書式)
+.git
+node_modules
+*.log
+.assetsignore
+wrangler.jsonc
