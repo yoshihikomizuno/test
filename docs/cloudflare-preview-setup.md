@@ -1,91 +1,82 @@
-# 非公開プレビューの初回セットアップ（Cloudflare Pages）
+# 非公開プレビュー — 構成と運用ガイド（Cloudflare Workers）
 
-このリポジトリを **Cloudflare Pages** につなぎ、**一般には非公開のまま**プレビューできる状態を作る手順です。
-**設定するのは最初の1回だけ**。以降は Claude Code が `git push` するたびに自動でプレビューが最新化されます。
-新しい制作案件も、フォルダを足して push するだけ（Cloudflareの再設定は不要）。
-
----
-
-## 前提
-
-- GitHub リポジトリ: `yoshihikomizuno/test`
-- 各案件は**リポジトリ直下のフォルダ**（例: `mazareal-kids-game/`）
-- ルートの `index.html` が**プレビュー一覧ページ**
+このリポジトリの制作物を「一般には非公開のまま」ブラウザで確認するための環境です。
+**初回セットアップは完了済み**。日々の運用は「フォルダを足して `main` に push → URLを開くだけ」です。
 
 ---
 
-## STEP 1. リポジトリを接続（約3分）
+## 1. 確定した構成
 
-> Cloudflareの新UIでは「Workers & Pages」は **「コンピュート」** に名称変更され、
-> Workers と Pages が統合されています。以下は新UIの手順（旧UIなら Workers & Pages → Create → Pages）。
+| 項目 | 値 |
+|---|---|
+| ホスティング | Cloudflare Workers（静的アセット配信）、GitHub連携・本番ブランチ = `main` |
+| サブドメイン（アカウント共通） | `mazareal`（= `mazareal.workers.dev`） |
+| Worker 名 | `test` |
+| ベースURL（一覧） | **https://test.mazareal.workers.dev/** |
+| 各案件のURL | `https://test.mazareal.workers.dev/<フォルダ名>/` |
+| 例：うちの子クエスト | https://test.mazareal.workers.dev/mazareal-kids-game/ |
+| 非公開化 | Cloudflare Access（ドメイン全体が「制限」＝サインイン必須） |
+| 閲覧許可 | `3aidmz@gmail.com`（Zero Trust → Access で管理） |
 
-1. [https://dash.cloudflare.com](https://dash.cloudflare.com) にログイン（無料アカウントでOK）
-2. ホームの **「Ship something new」カードの ［Create app］** を押す
-   （または左メニュー **「コンピュート」→ 右上「Create」**）
-3. **「Import a repository」**（Gitから取り込み）を選ぶ
-   - ⚠️ 「Drop a folder, or a zip」は選ばない（＝Zip手動アップロードなので今回の目的に反する）
-4. **GitHub を連携**（初回は Connect GitHub → 認可）し、リポジトリ **`yoshihikomizuno/test`** を選択
-5. ビルド設定を次のように入力：
-
-   | 項目 | 値 |
-   |---|---|
-   | プロジェクト名 | 任意（例: `mazareal-preview`）※これがURLの一部になる |
-   | Production branch | `main`（または普段の確定用ブランチ） |
-   | Framework preset | **None** |
-   | Build command | **空欄**（静的サイトなのでビルド不要） |
-   | Build output directory（デプロイ/アセットのディレクトリ） | **`/`**（リポジトリのルート） |
-
-6. **Save and Deploy / Create and Deploy** を押す → 数分で初回デプロイ完了
-
-> 新UIでは静的サイトが「Worker（静的アセット付き）」として作成される場合があるが、
-> 「pushで自動デプロイ」「プレビューURL」「Accessで非公開」はすべて同様に機能する。
-> 重要なのは **①Gitから取り込む ②Build output＝`/`** の2点。
-
-完了すると本番URLが発行されます（例）:
-- 一覧ページ: `https://mazareal-preview.pages.dev/`
-- 今回の案件: `https://mazareal-preview.pages.dev/mazareal-kids-game/`
-
-> ブランチごとのプレビューURLも自動で付きます：
-> `https://<ブランチ名>.mazareal-preview.pages.dev/mazareal-kids-game/`
-> （制作中ブランチの確認はこちらが便利）
+- 各案件は**リポジトリ直下のフォルダ**。ルートの `index.html` が一覧ダッシュボード。
+- ルートの `wrangler.jsonc`（assets: `./`）と `.assetsignore`（`.git` 等を除外）で配信を制御。
 
 ---
 
-## STEP 2. 非公開にする（Cloudflare Access／約3分）
+## 2. 日々の使い方
 
-このままだとURLを知る人は誰でも見られるので、**閲覧を自分たちだけに制限**します。
+### 制作物を更新したいとき
+`main` に変更が入ると、Cloudflareが自動でビルド＆デプロイ（1〜2分）。
+→ **同じURLを開き直すだけ**で最新になります（`git pull` もCloudflare操作も不要）。
 
-1. Pages プロジェクト → **Settings** → **General** の下の方、または **Access policy** の項目へ
-   （もしくは左メニュー **Zero Trust** → **Access** → **Applications**）
-2. このプロジェクトに **Access ポリシーを有効化 / Add application（Self-hosted）**
-3. ポリシー設定：
-   - **Application**: このPagesのドメイン（`*.mazareal-preview.pages.dev` を含める）
-   - **Policy name**: 例 `社内のみ`
-   - **Action**: **Allow**
-   - **Include** → **Emails**：閲覧を許可するメールアドレスを追加（例: `3aidmz@gmail.com`、社内メンバー分も）
-4. 保存
-
-以降、URLを開くと**メール確認コードでのログイン**が求められ、**許可したメールの人だけ**プレビューを見られます。一般には非公開のままです。
-
-> ⚠️ Access は「閲覧制限」であって暗号化ではありません。パスワードやAPIキーなど秘密情報はプレビューに置かないでください。
+### 新しい案件を追加するとき
+1. `bash scripts/new-preview-project.sh <フォルダ名> "表示名"` で雛形作成
+2. ルート `index.html` にカードを1枚追記
+3. `main` に push → 数分後 `https://test.mazareal.workers.dev/<フォルダ名>/` で確認可
+   （新フォルダは**既定で非公開**）
 
 ---
 
-## STEP 3. 発行されたURLを控える
+## 3. 公開/非公開の管理
 
-セットアップ後、本番の一覧URLをこのファイルの下に記録しておくと、以後の案内が楽になります。
+ドメイン全体は既定で「制限（非公開）」＝**新しいフォルダも自動的に非公開**。
+フォルダ単位で公開/非公開を混在させたいときは、**パス単位のAccessアプリ**を追加します
+（Cloudflareは細かいパス指定のルールを優先します）。
 
-- **本番URL（一覧ページ）**: `https://__ここに記入__.pages.dev/`
-- **Cloudflare プロジェクト名**: `__ここに記入__`
+### 特定フォルダだけ「公開」にする
+1. **Zero Trust → Access → Applications → Add an application → Self-hosted**
+2. Application domain: `test.mazareal.workers.dev` / Path: `<フォルダ名>`
+3. Policy: **Action = Bypass**、**Include = Everyone**
+4. 保存 → そのフォルダだけ全員閲覧可、他は非公開のまま
 
-（Claude に「本番URLは ○○ です」と一言伝えてもらえれば、以後こちらで案内に使います）
+### 閲覧できる人を増やす
+- 既定アプリのポリシーの **Emails** にアドレスを追加、または
+- **Emails ending in `@mazareal.co.jp`** で社内ドメインを一括許可
 
 ---
 
-## これで完了。以降の運用
+## 4. 初回セットアップの記録（済み・再現用メモ）
 
-- **更新を見たいとき** … Claude が push → 1〜2分後、**同じURLを開き直すだけ**で最新
-- **新しい案件** … Claude がフォルダを追加して push → `一覧URL` を開けばそこから入れる
-- **あなたがやること** … Cloudflareの再設定も `git pull` も不要。**URLを開くだけ**
+1. **GitHub連携**：Workers & Pages →「アプリケーションを作成する」→ Import a repository → `yoshihikomizuno/test`
+   （デプロイコマンド `npx wrangler deploy` / 本番ブランチ `main`）
+2. **配信設定**：ルートに `wrangler.jsonc`（`{ "name": "test", "assets": { "directory": "./" } }`）と `.assetsignore` を追加
+3. **workers.dev サブドメイン登録**：新UIに登録画面が出なかったため、API で登録（※ユーザーのPCで実行）
+   ```bash
+   curl -X PUT "https://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/workers/subdomain" \
+     -H "Authorization: Bearer <API_TOKEN>" -H "Content-Type: application/json" \
+     --data '{"subdomain":"mazareal"}'
+   ```
+   （トークンは「Edit Cloudflare Workers」テンプレートで作成。使用後は失効させる）
+4. **本番URL有効化**：Worker `test` → ドメイン → 「プロダクション」トグルON
+5. **非公開化**：同画面のアクセスを「制限」に → Zero Trust → Access で `3aidmz@gmail.com` を許可
 
-困ったら Claude に「preview-deploy スキルで」と伝えれば、この運用に沿って進めます。
+> ⚠️ Cloudflare API はこの制作環境（Claude Code）からは遮断されている（api.cloudflare.com が 403）。
+> Cloudflare側の操作は、ダッシュボードで行うか、ユーザーのPCで cURL を実行する。
+
+---
+
+## 5. トラブル時メモ
+
+- **ビルド失敗「register a workers.dev subdomain」**：サブドメイン未登録。上記4-3のAPIで登録。
+- **URLが 404/空**：本番ブランチ `main` に中身が入っているか、`wrangler.jsonc` が `main` にあるか確認。
+- **`.git` 等が配信される**：`.assetsignore` に除外パターンを追記。
