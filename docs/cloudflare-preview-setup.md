@@ -14,22 +14,32 @@
 
 ---
 
-## STEP 1. Cloudflare Pages にリポジトリを接続（約3分）
+## STEP 1. リポジトリを接続（約3分）
+
+> Cloudflareの新UIでは「Workers & Pages」は **「コンピュート」** に名称変更され、
+> Workers と Pages が統合されています。以下は新UIの手順（旧UIなら Workers & Pages → Create → Pages）。
 
 1. [https://dash.cloudflare.com](https://dash.cloudflare.com) にログイン（無料アカウントでOK）
-2. 左メニュー **Workers & Pages** → **Create** → **Pages** タブ → **Connect to Git**
-3. GitHub を認可し、リポジトリ **`yoshihikomizuno/test`** を選択
-4. ビルド設定を次のように入力：
+2. ホームの **「Ship something new」カードの ［Create app］** を押す
+   （または左メニュー **「コンピュート」→ 右上「Create」**）
+3. **「Import a repository」**（Gitから取り込み）を選ぶ
+   - ⚠️ 「Drop a folder, or a zip」は選ばない（＝Zip手動アップロードなので今回の目的に反する）
+4. **GitHub を連携**（初回は Connect GitHub → 認可）し、リポジトリ **`yoshihikomizuno/test`** を選択
+5. ビルド設定を次のように入力：
 
    | 項目 | 値 |
    |---|---|
-   | Project name | 任意（例: `mazareal-preview`）※これがURLの一部になる |
+   | プロジェクト名 | 任意（例: `mazareal-preview`）※これがURLの一部になる |
    | Production branch | `main`（または普段の確定用ブランチ） |
    | Framework preset | **None** |
    | Build command | **空欄**（静的サイトなのでビルド不要） |
-   | Build output directory | **`/`**（リポジトリのルート） |
+   | Build output directory（デプロイ/アセットのディレクトリ） | **`/`**（リポジトリのルート） |
 
-5. **Save and Deploy** を押す → 数分で初回デプロイ完了
+6. **Save and Deploy / Create and Deploy** を押す → 数分で初回デプロイ完了
+
+> 新UIでは静的サイトが「Worker（静的アセット付き）」として作成される場合があるが、
+> 「pushで自動デプロイ」「プレビューURL」「Accessで非公開」はすべて同様に機能する。
+> 重要なのは **①Gitから取り込む ②Build output＝`/`** の2点。
 
 完了すると本番URLが発行されます（例）:
 - 一覧ページ: `https://mazareal-preview.pages.dev/`
