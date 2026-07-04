@@ -456,6 +456,72 @@ em { font-style: normal; }
 .talk-line::before { content: "▶ "; color: var(--yellow); }
 
 /* ------------------------------------------------------------
+   実話セクション (TRUE STORY)
+------------------------------------------------------------ */
+.section-story { background: var(--night); color: var(--cream); }
+.section-story .section-title { color: var(--cream); }
+
+.story-body {
+  max-width: 720px;
+  margin: 0 auto 48px;
+  font-size: 16px;
+}
+.story-body p + p { margin-top: 18px; }
+.story-body strong { color: var(--yellow); font-weight: 700; }
+
+.story-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  max-width: 760px;
+  margin: 0 auto 48px;
+}
+.stat-card {
+  background: rgba(253, 246, 231, .06);
+  border: 3px solid rgba(253, 246, 231, .45);
+  border-radius: var(--radius);
+  padding: 22px 12px;
+  text-align: center;
+}
+.stat-label {
+  display: block;
+  font-size: 12px;
+  letter-spacing: .15em;
+  opacity: .75;
+  margin-bottom: 10px;
+}
+.stat-value {
+  display: block;
+  font-family: var(--font-pixel);
+  font-size: 17px;
+  line-height: 1.5;
+}
+.stat-num {
+  font-size: 38px;
+  color: var(--yellow);
+  font-weight: 400;
+  margin-right: 2px;
+}
+
+.story-message {
+  max-width: 720px;
+  margin: 0 auto;
+  font-size: 16px;
+}
+.story-message p + p { margin-top: 18px; }
+.story-message strong { color: var(--pink); font-weight: 700; }
+.story-link { text-align: center; }
+.story-link a {
+  font-family: var(--font-pixel);
+  color: var(--yellow);
+  font-size: 15px;
+  text-decoration: none;
+  border-bottom: 2px dashed var(--yellow);
+  padding-bottom: 2px;
+}
+.story-link a:hover { border-bottom-style: solid; }
+
+/* ------------------------------------------------------------
    共感パート
 ------------------------------------------------------------ */
 .section-empathy { background: var(--paper); }
@@ -744,6 +810,7 @@ em { font-style: normal; }
 ------------------------------------------------------------ */
 @media (max-width: 900px) {
   .empathy-list, .feature-grid, .price-grid { grid-template-columns: 1fr 1fr; }
+  .story-stats { grid-template-columns: 1fr 1fr; }
   .price-card-featured { transform: none; }
 }
 
