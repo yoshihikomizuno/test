@@ -123,7 +123,23 @@
   }
 
   /* ------------------------------------------------------------
-     6. コインのおまけ演出: クリックすると +1 が飛び出す
+     6. ページ内リンク: URLにハッシュ(#about等)を残さずスクロール
+        (スムーズスクロールとヘッダー分の余白は CSS の
+         scroll-behavior / scroll-padding-top がそのまま効く)
+  ------------------------------------------------------------ */
+  document.querySelectorAll('a[href^="#"]').forEach(function (link) {
+    link.addEventListener('click', function (e) {
+      var hash = link.getAttribute('href');
+      if (hash.length < 2) return; // href="#" はそのまま
+      var target = document.getElementById(hash.slice(1));
+      if (!target) return;
+      e.preventDefault();
+      target.scrollIntoView();
+    });
+  });
+
+  /* ------------------------------------------------------------
+     7. コインのおまけ演出: クリックすると +1 が飛び出す
   ------------------------------------------------------------ */
   document.querySelectorAll('.pixel-coin').forEach(function (coin) {
     coin.style.cursor = 'pointer';
