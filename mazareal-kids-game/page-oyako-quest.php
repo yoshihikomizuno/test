@@ -1,0 +1,612 @@
+<?php
+/**
+ * Template Name: おやこクエスト LP
+ * Description: 株式会社マザリアル「おやこクエスト」ランディングページ専用の1枚完結テンプレート。
+ *
+ * -----------------------------------------------------------------------------
+ * 使い方 / 設置手順
+ * -----------------------------------------------------------------------------
+ * 1. このファイルを、有効化中テーマ（子テーマ推奨）のフォルダ直下に置く:
+ *      wp-content/themes/<theme>/page-oyako-quest.php
+ *    スラッグ「oyako-quest」の固定ページを作成すると、WordPress が自動で
+ *    このテンプレートを使います（page-{slug}.php のテンプレート階層）。
+ *    別スラッグで使いたい場合は、固定ページ編集画面の「テンプレート」で
+ *    「おやこクエスト LP」を選択してください。
+ *
+ * 2. LP のアセット一式を、テーマ内の「oyako-quest」フォルダに配置する:
+ *      wp-content/themes/<theme>/oyako-quest/css/style.css
+ *      wp-content/themes/<theme>/oyako-quest/js/main.js
+ *      wp-content/themes/<theme>/oyako-quest/img/icon-gift.svg
+ *      wp-content/themes/<theme>/oyako-quest/img/icon-magic.svg
+ *      wp-content/themes/<theme>/oyako-quest/img/icon-passion.svg
+ *    （このリポジトリの mazareal-kids-game/ 配下の css・js・img をそのままコピー）
+ *
+ * 3. OGP 画像を用意し、下の og:image の URL を差し替える。
+ *
+ * 補足:
+ * - このテンプレートは LP が独自のヘッダー/フッター/進行ゲージを持ち、
+ *   同梱 JS が #siteHeader・#xpBar に依存するため、テーマの header.php /
+ *   footer.php は読み込まず 1 枚で完結させています。プラグインや解析タグが
+ *   動くよう wp_head() / wp_footer() は必ず出力しています。
+ * - SEO プラグイン（Yoast 等）でメタ情報を管理する場合は、下の
+ *   <title>・description・OGP を無効化し、プラグイン側に転記してください。
+ * - お問い合わせは会社サイトの /contact/ へのリンクにしています。ページ内に
+ *   Contact Form 7 等を埋め込む場合は、#contact セクションのボタンを
+ *   ショートコード出力に置き換えてください。
+ *
+ * @package Mazareal
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit; // 直接アクセス禁止
+}
+
+// LP アセットのベース URL（テーマ内 oyako-quest フォルダ）
+$oyako_assets = esc_url( get_stylesheet_directory_uri() . '/oyako-quest' );
+
+/**
+ * このテンプレートが使われるページでだけ CSS / JS を読み込む。
+ * （テンプレート先頭で登録すれば、wp_head() 実行時の wp_enqueue_scripts に間に合う）
+ */
+add_action(
+	'wp_enqueue_scripts',
+	function () {
+		$base = get_stylesheet_directory_uri() . '/oyako-quest';
+		$ver  = '1.0.0';
+
+		// 見出し=ドット絵風 / 本文=丸ゴシック
+		wp_enqueue_style(
+			'oyako-quest-fonts',
+			'https://fonts.googleapis.com/css2?family=DotGothic16&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap',
+			array(),
+			null
+		);
+		wp_enqueue_style( 'oyako-quest', $base . '/css/style.css', array( 'oyako-quest-fonts' ), $ver );
+		wp_enqueue_script( 'oyako-quest', $base . '/js/main.js', array(), $ver, true );
+	}
+);
+
+/**
+ * SEO / OGP / 構造化データ（JSON-LD）を <head> に出力。
+ * SEO プラグインで管理する場合はこの add_action ごと削除してください。
+ */
+add_action(
+	'wp_head',
+	function () {
+		?>
+	<title>おやこクエスト｜親がAIで、わが子にオリジナルゲームをつくって贈る伴走サービス - 株式会社マザリアル</title>
+	<meta name="description" content="「おやこクエスト」は、プログラミング経験ゼロの親御さまが、AIとの対話だけで、お子さまの「好き」を題材にしたオリジナルゲームを自分の手でつくれるように伴走するサービスです。制作代行ではありません。つくるのは、あなた。マザリアルは隣でサポートします。誕生日や記念日の贈り物に。">
+	<link rel="canonical" href="https://mazareal.co.jp/oyako-quest/">
+
+	<!-- OGP -->
+	<meta property="og:type" content="website">
+	<meta property="og:site_name" content="株式会社マザリアル">
+	<meta property="og:title" content="おやこクエスト｜親がAIで、わが子にオリジナルゲームをつくって贈る伴走サービス">
+	<meta property="og:description" content="プログラミング経験ゼロでも、AIとの対話だけで、わが子の「好き」を題材にしたゲームがつくれる。つくるのは、あなた。マザリアルは隣で伴走します。">
+	<meta property="og:url" content="https://mazareal.co.jp/oyako-quest/">
+	<meta property="og:locale" content="ja_JP">
+	<!-- ※ OGP画像はアップロードした画像のURLへ差し替えてください -->
+	<meta property="og:image" content="https://mazareal.co.jp/oyako-quest/ogp.png">
+	<meta name="twitter:card" content="summary_large_image">
+
+	<!-- 構造化データ (JSON-LD) -->
+	<script type="application/ld+json">
+	{
+	  "@context": "https://schema.org",
+	  "@graph": [
+	    {
+	      "@type": "Organization",
+	      "@id": "https://mazareal.co.jp/#organization",
+	      "name": "株式会社マザリアル",
+	      "url": "https://mazareal.co.jp/",
+	      "slogan": "コドモゴコロに火をつける",
+	      "description": "空想と現実の境界線をあいまいにし、「楽しい」から始まる未来を応援する会社。2Dメタバース空間の構築やゲームを活用した体験づくりを手がけています。"
+	    },
+	    {
+	      "@type": "Service",
+	      "@id": "https://mazareal.co.jp/oyako-quest/#service",
+	      "name": "おやこクエスト",
+	      "serviceType": "AIゲームづくり伴走サポートサービス",
+	      "provider": { "@id": "https://mazareal.co.jp/#organization" },
+	      "areaServed": "JP",
+	      "audience": {
+	        "@type": "PeopleAudience",
+	        "audienceType": "自分の子どもにオリジナルゲームを自分の手でつくってプレゼントしたい親"
+	      },
+	      "description": "プログラミング経験のない親御さまが、AIとの対話だけで、子どもの好きなものや興味のある題材をもとにしたオリジナルゲームを自分自身でつくれるように伴走するサポートサービス。制作代行ではなく、子どもの「好き」の聞き出し方の設計から、AIとのゲームづくり、完成してプレゼントするまでをマザリアルが隣で支えます。"
+	    },
+	    {
+	      "@type": "FAQPage",
+	      "@id": "https://mazareal.co.jp/oyako-quest/#faq",
+	      "mainEntity": [
+	        {
+	          "@type": "Question",
+	          "name": "プログラミングもゲームづくりも未経験ですが、本当に自分でつくれますか？",
+	          "acceptedAnswer": {
+	            "@type": "Answer",
+	            "text": "はい、つくれます。コードは1行も書きません。AIに日本語で話しかけながらつくっていきます。実際に、ゲーム制作経験ゼロの52歳のお母さまが、AIとの対話だけで約4時間で歴史ゲームを完成させ、11歳の息子さんの誕生日当日にプレゼントした実例があります。"
+	          }
+	        },
+	        {
+	          "@type": "Question",
+	          "name": "マザリアルがゲームをつくってくれるのですか？",
+	          "acceptedAnswer": {
+	            "@type": "Answer",
+	            "text": "いいえ。つくるのは親御さまご自身です。マザリアルは、お子さまの「好き」の聞き出し方の設計、AIへの伝え方、つまずいたときの助け舟など、完成までの伴走役に徹します。「自分がつくった」という実感ごと、お子さまに贈っていただくためです。"
+	          }
+	        },
+	        {
+	          "@type": "Question",
+	          "name": "何を用意すればいいですか？",
+	          "acceptedAnswer": {
+	            "@type": "Answer",
+	            "text": "パソコン(またはタブレット)と、対話型AIのアカウント、そしてお子さまの「好き」の情報だけです。AIアカウントの作成から丁寧にご案内しますので、AIを使ったことがなくても大丈夫です。"
+	          }
+	        },
+	        {
+	          "@type": "Question",
+	          "name": "完成までどのくらいかかりますか？",
+	          "acceptedAnswer": {
+	            "@type": "Answer",
+	            "text": "題材と構成が決まっていれば、最短でその日のうちに完成します。多くの方は、ヒアリング設計と伴走セッション1〜2回(合計3〜5時間ほど)で完成しています。誕生日など渡したい日が決まっている場合は、1〜2週間前のご相談がおすすめです。"
+	          }
+	        },
+	        {
+	          "@type": "Question",
+	          "name": "子どもに内緒で準備できますか？",
+	          "acceptedAnswer": {
+	            "@type": "Answer",
+	            "text": "できます。お子さまへのヒアリングは「最近なにが一番おもしろい？」といった自然な会話でできるよう、質問の仕方から一緒に設計します。サプライズでのお渡しにも対応した進め方をご案内します。"
+	          }
+	        },
+	        {
+	          "@type": "Question",
+	          "name": "できあがったゲームはどうやって子どもに渡せますか？",
+	          "acceptedAnswer": {
+	            "@type": "Answer",
+	            "text": "スマートフォンやパソコンのブラウザで開くだけで遊べる形でつくります。アプリのインストールは不要です。URLを共有すれば、おじいちゃんおばあちゃんやお友だちにも遊んでもらえます。"
+	          }
+	        }
+	      ]
+	    },
+	    {
+	      "@type": "BreadcrumbList",
+	      "itemListElement": [
+	        { "@type": "ListItem", "position": 1, "name": "ホーム", "item": "https://mazareal.co.jp/" },
+	        { "@type": "ListItem", "position": 2, "name": "おやこクエスト", "item": "https://mazareal.co.jp/oyako-quest/" }
+	      ]
+	    }
+	  ]
+	}
+	</script>
+		<?php
+	}
+);
+
+?>
+<!DOCTYPE html>
+<html <?php language_attributes(); ?>>
+<head>
+	<meta charset="<?php bloginfo( 'charset' ); ?>">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<?php wp_head(); ?>
+</head>
+
+<body <?php body_class( 'oyako-quest-lp' ); ?>>
+<?php wp_body_open(); ?>
+
+	<!-- スクロール進行ゲージ(経験値バー風) -->
+	<div class="xp-progress" aria-hidden="true"><span id="xpBar"></span></div>
+
+	<!-- ヘッダー -->
+	<header class="site-header" id="siteHeader">
+		<div class="header-inner">
+			<a href="https://mazareal.co.jp/" class="brand" aria-label="株式会社マザリアル ホームへ">
+				<span class="brand-pixel" aria-hidden="true">■</span>
+				<span class="brand-name">MAZAREAL</span>
+			</a>
+			<nav class="global-nav" aria-label="ページ内メニュー">
+				<ul>
+					<li><a href="#about">サービスとは</a></li>
+					<li><a href="#story">実話</a></li>
+					<li><a href="#features">できること</a></li>
+					<li><a href="#flow">ながれ</a></li>
+					<li><a href="#price">料金</a></li>
+					<li><a href="#faq">よくある質問</a></li>
+				</ul>
+			</nav>
+			<a href="#contact" class="btn btn-small btn-primary">相談する</a>
+		</div>
+	</header>
+
+	<main>
+		<!-- ヒーロー: 夜空×ドット絵の冒険ステージ -->
+		<section class="hero" aria-label="おやこクエスト メインビジュアル">
+			<div class="hero-sky" aria-hidden="true">
+				<div class="stars stars-1"></div>
+				<div class="stars stars-2"></div>
+				<div class="pixel-cloud cloud-1"></div>
+				<div class="pixel-cloud cloud-2"></div>
+				<div class="pixel-cloud cloud-3"></div>
+				<div class="pixel-moon"></div>
+			</div>
+
+			<div class="hero-content">
+				<p class="hero-eyebrow">
+					<span class="blink" aria-hidden="true">▶</span> つくるのは、あなた。となりで支えるのが、わたしたち。
+				</p>
+				<h1 class="hero-title">
+					<span class="hero-title-line">わが子のためのゲームを、</span>
+					<span class="hero-title-line"><em>あなたの手</em>でつくる。</span>
+				</h1>
+				<p class="hero-lead">
+					「おやこクエスト」は、プログラミング経験ゼロの親御さまが、<br class="pc-only">
+					AIとの対話だけで、お子さまの「好き」を題材にした<br class="pc-only">
+					オリジナルゲームをつくれるように伴走するサービスです。
+				</p>
+				<div class="hero-cta">
+					<a href="#contact" class="btn btn-primary btn-large">
+						<span class="blink" aria-hidden="true">▶</span> 冒険のそうだんをする(無料)
+					</a>
+					<a href="#story" class="btn btn-ghost">実話を読む</a>
+				</div>
+			</div>
+
+			<!-- ドット絵の地面と歩く主人公 -->
+			<div class="hero-ground" aria-hidden="true">
+				<div class="pixel-hero-sprite" id="pixelHero"></div>
+				<div class="pixel-coin coin-a"></div>
+				<div class="pixel-coin coin-b"></div>
+				<div class="pixel-coin coin-c"></div>
+				<div class="pixel-flag"></div>
+			</div>
+			<p class="hero-scroll-hint" aria-hidden="true">▼ SCROLL ▼</p>
+		</section>
+
+		<!-- サービス概要 -->
+		<section class="section section-about" id="about" aria-labelledby="about-title">
+			<div class="container">
+				<p class="section-eyebrow reveal">ABOUT</p>
+				<h2 class="section-title reveal" id="about-title">「おやこクエスト」って、<br class="sp-only">なに？</h2>
+
+				<div class="about-definition reveal">
+					<p>
+						<strong>おやこクエスト</strong>は、<a href="https://mazareal.co.jp/">株式会社マザリアル</a>が提供する、
+						<strong>「自分の子どもにオリジナルゲームをプレゼントしたい親御さま」が、AIとの対話だけで、自分の手でゲームをつくれるように伴走するサポートサービス</strong>です。
+					</p>
+					<p>
+						大事なことなので、はっきり書きます。<strong>私たちが代わりにつくるのではありません。つくるのは、あなたです。</strong><br>
+						コードは1行も書きません。AIに日本語で話しかけながら、お子さまの好きなもの・興味のある題材をゲームにしていきます。
+						マザリアルの役目は、お子さまの「好き」の聞き出し方の設計から、AIへの伝え方、つまずいたときの助け舟まで——
+						完成してプレゼントする瞬間までの<strong>伴走役</strong>です。
+					</p>
+					<p>
+						なぜなら、このプレゼントのいちばんの価値は、ゲームの完成度ではなく、
+						<strong>「親が、自分のために、自分の『好き』をわかろうとして、つくってくれた」</strong>という事実そのものだからです。
+					</p>
+				</div>
+
+				<div class="about-window reveal">
+					<div class="window-titlebar"><span>■ QUEST START ■</span></div>
+					<div class="window-body">
+						<p class="talk-line" data-typewriter>ある日あらわれたのは、じぶんの大好きなものが詰まったゲーム。作者の名前には……お母さんの名前が。</p>
+						<p class="talk-line">「え、これ、お母さんがつくったの！？」</p>
+						<p class="talk-line">その顔を、いちばん近くで見られるのは、つくったあなただけです。</p>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- 実話 -->
+		<section class="section section-story" id="story" aria-labelledby="story-title">
+			<div class="container">
+				<p class="section-eyebrow reveal">TRUE STORY</p>
+				<h2 class="section-title reveal" id="story-title">はじまりは、<br class="sp-only">ある母の挑戦でした。</h2>
+
+				<div class="story-body reveal">
+					<p>
+						離れて暮らす歴史好きの息子さん(小5)の11歳の誕生日に、<strong>52歳のお母さまがAIと対話しながらオリジナルの「歴史ゲーム」を自作してプレゼントした</strong>——そんな実話があります。
+					</p>
+					<p>
+						彼女はゲームクリエイターではありません。プログラミング経験もゼロ。
+						それでも、息子さんに電話でヒアリングをしました。
+						「歴史のどういうところが好きなの？」「どんな瞬間が楽しいの？」「周りの人と何を共有したいの？」——。
+					</p>
+					<p>
+						わかったのは、息子さんは単に武将が好きなのではなく、<strong>「与えられた条件のなかで戦術を考える瞬間」が楽しい</strong>ということ。
+						そこで「自分の考えた戦術が、かつての武将と同じ選択だったとわかる」体験をゲームにしました。
+						夕方に思い立って、AIと壁打ちしながら、<strong>ヒアリングからわずか4時間後に完成。誕生日当日中に渡せた</strong>そうです。
+					</p>
+				</div>
+
+				<ul class="story-stats reveal" aria-label="この実話のポイント">
+					<li class="stat-card">
+						<span class="stat-label">つくった人</span>
+						<span class="stat-value">52歳の<br>お母さん</span>
+					</li>
+					<li class="stat-card">
+						<span class="stat-label">書いたコード</span>
+						<span class="stat-value"><strong class="stat-num">0</strong>行</span>
+					</li>
+					<li class="stat-card">
+						<span class="stat-label">制作時間</span>
+						<span class="stat-value">約<strong class="stat-num">4</strong>時間</span>
+					</li>
+					<li class="stat-card">
+						<span class="stat-label">お渡し</span>
+						<span class="stat-value">誕生日<br>当日</span>
+					</li>
+				</ul>
+
+				<div class="story-message reveal">
+					<p>
+						このお母さまが本当に贈りたかったのは、ゲームそのものではありませんでした。
+						好きの熱量が高すぎて、同じ温度で話せる友だちがなかなかいない息子さんの、
+						<strong>「伝えたいのに、伝えられない」というもどかしさを解決してあげること</strong>。
+					</p>
+					<p>
+						子どもの「楽しい！」を、まわりの人が共感できるかたちに編集して、仲間と出会うきっかけをつくる。<br>
+						——それは、特別な技術を持つ人だけの話ではもうありません。<strong>AIがあるいま、どの親にもできること</strong>です。<br>
+						おやこクエストは、この体験をすべての親御さまに届けるために生まれました。
+					</p>
+					<p class="story-link">
+						<a href="https://note.com/matsumoto2025/n/n9790ef287402" target="_blank" rel="noopener">▶ 元になった実話の記事を読む(note)</a>
+					</p>
+				</div>
+			</div>
+		</section>
+
+		<!-- 共感パート -->
+		<section class="section section-empathy" aria-labelledby="empathy-title">
+			<div class="container">
+				<p class="section-eyebrow reveal">WHY</p>
+				<h2 class="section-title reveal" id="empathy-title">買って渡すだけの贈りものに、<br>少し物足りなさを感じているなら。</h2>
+
+				<ul class="empathy-list">
+					<li class="empathy-card reveal">
+						<img class="empathy-icon" src="<?php echo $oyako_assets; ?>/img/icon-passion.svg" alt="" width="112" height="112" loading="lazy">
+						<h3>好きすぎて、<br>孤独になっている子へ</h3>
+						<p>電車、恐竜、歴史、宇宙……熱量が高すぎて、同じ温度で話せる友だちがいない。その「好き」を、みんなが楽しめるかたちにしてあげたい。</p>
+					</li>
+					<li class="empathy-card reveal">
+						<img class="empathy-icon" src="<?php echo $oyako_assets; ?>/img/icon-gift.svg" alt="" width="112" height="112" loading="lazy">
+						<h3>モノより、<br>「わかってくれた」を贈りたい</h3>
+						<p>おもちゃはすぐ飽きる。それより「お母さん(お父さん)は、ぼくの好きを本気でわかろうとしてくれた」という記憶を残したい。</p>
+					</li>
+					<li class="empathy-card reveal">
+						<img class="empathy-icon" src="<?php echo $oyako_assets; ?>/img/icon-magic.svg" alt="" width="112" height="112" loading="lazy">
+						<h3>私自身も、<br>AIを使えるようになりたい</h3>
+						<p>仕事でもAIの波は来ている。どうせ学ぶなら、講座を10回聞くより、大切な誰かのために1本つくるほうが、身につくし楽しい。</p>
+					</li>
+				</ul>
+
+				<p class="empathy-closing reveal">
+					その3つ、<strong>ひとつの冒険</strong>で叶います。
+				</p>
+			</div>
+		</section>
+
+		<!-- 特徴 -->
+		<section class="section section-features" id="features" aria-labelledby="features-title">
+			<div class="container">
+				<p class="section-eyebrow reveal">FEATURES</p>
+				<h2 class="section-title reveal" id="features-title">おやこクエストの<br class="sp-only">伴走でできること</h2>
+
+				<div class="feature-grid">
+					<article class="feature-card reveal">
+						<span class="feature-num" aria-hidden="true">01</span>
+						<h3>コードは書かない。<br>AIと話すだけ</h3>
+						<p>日本語でAIに話しかけながらつくるスタイルなので、プログラミング経験は不要です。AIアカウントの作り方から、最初のひとことの伝え方まで、ゼロからご案内します。</p>
+					</article>
+					<article class="feature-card reveal">
+						<span class="feature-num" aria-hidden="true">02</span>
+						<h3>「好き」の聞き出し方から、<br>一緒に設計</h3>
+						<p>「どういうところが好き？」「どんな瞬間が楽しい？」——お子さまの好きの正体をつかむヒアリングの質問を、一緒に組み立てます。サプライズなら、気づかれない聞き方も。</p>
+					</article>
+					<article class="feature-card reveal">
+						<span class="feature-num" aria-hidden="true">03</span>
+						<h3>「楽しさの正体」を、<br>ゲームの仕掛けに翻訳</h3>
+						<p>戦術を考えるのが楽しい子には選択型の物語を。「知らなかった！」が好きな子にはクイズを。お子さまの楽しさの中身に合わせて、ゲームの型を一緒に選びます。</p>
+					</article>
+					<article class="feature-card reveal">
+						<span class="feature-num" aria-hidden="true">04</span>
+						<h3>つまずいたら、<br>すぐ助け舟</h3>
+						<p>「AIへの頼み方がわからない」「思った動きにならない」——制作中の困りごとは、伴走セッションやチャットで解決。ひとりで悩む時間をなくします。</p>
+					</article>
+					<article class="feature-card reveal">
+						<span class="feature-num" aria-hidden="true">05</span>
+						<h3>URLひとつで、<br>渡せる・広がる</h3>
+						<p>完成したゲームはブラウザで開くだけで遊べる形に。家族や友だちにURLを送れば、お子さまの「好き」に共感してくれる仲間と出会うきっかけになります。</p>
+					</article>
+					<article class="feature-card reveal">
+						<span class="feature-num" aria-hidden="true">06</span>
+						<h3>あなたのAIスキルが、<br>財産として残る</h3>
+						<p>わが子のための1本をつくりきる過程で、AIとの対話のコツが自然と身につきます。それは仕事にも日常にも活きる、あなた自身へのプレゼントです。</p>
+					</article>
+				</div>
+			</div>
+		</section>
+
+		<!-- 利用シーン -->
+		<section class="section section-scenes" aria-labelledby="scenes-title">
+			<div class="container">
+				<p class="section-eyebrow reveal">SCENES</p>
+				<h2 class="section-title reveal" id="scenes-title">こんな日の贈りものに</h2>
+				<ul class="scene-list">
+					<li class="scene-chip reveal">🎂 お誕生日に</li>
+					<li class="scene-chip reveal">🎄 クリスマスに</li>
+					<li class="scene-chip reveal">🎒 入学・進級のお祝いに</li>
+					<li class="scene-chip reveal">🌻 夏休みの親子チャレンジに</li>
+					<li class="scene-chip reveal">🏠 離れて暮らすわが子・孫に</li>
+					<li class="scene-chip reveal">💬 「最近会話が減ったな」の橋渡しに</li>
+				</ul>
+			</div>
+		</section>
+
+		<!-- 制作の流れ -->
+		<section class="section section-flow" id="flow" aria-labelledby="flow-title">
+			<div class="container">
+				<p class="section-eyebrow reveal">FLOW</p>
+				<h2 class="section-title reveal" id="flow-title">プレゼントまでの、ながれ</h2>
+				<p class="section-lead reveal">主役の作者はあなた。マザリアルは、ぜんぶのステップで隣にいます。</p>
+
+				<ol class="flow-list">
+					<li class="flow-step reveal">
+						<span class="flow-badge" aria-hidden="true">STEP 1</span>
+						<h3>無料そうだん(30分)</h3>
+						<p>お子さまの年齢・いま夢中なもの・渡したい日を聞かせてください。「うちの子なら、どんなゲームになりそうか」をその場で一緒に妄想します。</p>
+					</li>
+					<li class="flow-step reveal">
+						<span class="flow-badge" aria-hidden="true">STEP 2</span>
+						<h3>「好き」のヒアリング設計</h3>
+						<p>お子さまへの質問リストを一緒につくり、親御さまご自身でヒアリング。「好きの正体(どんな瞬間が楽しいのか)」を言葉にして、ゲームの企画に落とし込みます。</p>
+					</li>
+					<li class="flow-step reveal">
+						<span class="flow-badge" aria-hidden="true">STEP 3</span>
+						<h3>伴走セッションで、つくる</h3>
+						<p>オンラインで画面を共有しながら、あなたがAIと対話してゲームを組み上げていきます。頼み方のコツ、直し方、仕掛けの足し方は、その場でサポート。最短この日に完成します。</p>
+					</li>
+					<li class="flow-step reveal">
+						<span class="flow-badge" aria-hidden="true">STEP 4</span>
+						<h3>完成、プレゼント！</h3>
+						<p>ブラウザで遊べるURLにして、当日はお子さまの隣で「はじまり」のボタンを。作者名の欄に、あなたの名前を入れるのをお忘れなく。</p>
+					</li>
+				</ol>
+			</div>
+		</section>
+
+		<!-- 料金プラン ※価格は仮の参考価格です。公開前に正式価格へ差し替えてください -->
+		<section class="section section-price" id="price" aria-labelledby="price-title">
+			<div class="container">
+				<p class="section-eyebrow reveal">PRICE</p>
+				<h2 class="section-title reveal" id="price-title">料金プラン</h2>
+
+				<div class="price-grid">
+					<article class="price-card reveal">
+						<h3 class="price-plan">じぶんで挑戦</h3>
+						<p class="price-amount"><span class="price-num" data-count="29800">0</span><span class="price-unit">円(税別)</span></p>
+						<ul class="price-features">
+							<li>ゲームづくりガイドブック</li>
+							<li>「好き」ヒアリング質問集</li>
+							<li>AIへの頼み方テンプレート集</li>
+							<li>チャットでの質問 2週間</li>
+						</ul>
+						<p class="price-note">まずは自分のペースで試したい方に</p>
+					</article>
+
+					<article class="price-card price-card-featured reveal">
+						<p class="price-ribbon" aria-hidden="true">★ 人気No.1 ★</p>
+						<h3 class="price-plan">伴走プラン</h3>
+						<p class="price-amount"><span class="price-num" data-count="98000">0</span><span class="price-unit">円(税別)</span></p>
+						<ul class="price-features">
+							<li>ヒアリング設計ミーティング(60分)</li>
+							<li>オンライン伴走セッション 2回(1回1.5時間)</li>
+							<li>完成までのチャットサポート 1ヶ月</li>
+							<li>じぶんで挑戦プランの内容ぜんぶ</li>
+						</ul>
+						<p class="price-note">はじめての方は、まずこちら。完成まで隣にいます</p>
+					</article>
+
+					<article class="price-card reveal">
+						<h3 class="price-plan">とことんプラン</h3>
+						<p class="price-amount"><span class="price-num" data-count="198000">0</span><span class="price-unit">円(税別)</span></p>
+						<ul class="price-features">
+							<li>ヒアリング設計ミーティング(60分)</li>
+							<li>伴走セッション回数 6回(2ヶ月)</li>
+							<li>お披露目会・家族プレイ会の企画セット(招待状＋クリア認定証)</li>
+							<li>お子さまと一緒の「親子制作」対応</li>
+							<li>2作目以降のつくり方レクチャー</li>
+						</ul>
+						<p class="price-note">とことん学んで、つくれる親になりたい方に</p>
+					</article>
+				</div>
+
+				<!-- オプション -->
+				<div class="price-options reveal">
+					<h3 class="price-options-title"><span aria-hidden="true">＋</span> オプション</h3>
+					<ul class="price-options-list">
+						<li><span class="opt-name">追加伴走セッション</span><span class="opt-price">2万円</span></li>
+						<li><span class="opt-name">追加伴走セッション回数券(3回分)</span><span class="opt-price">5万円</span></li>
+						<li><span class="opt-name">お披露目会用 告知イメージ制作</span><span class="opt-price">3万円</span></li>
+					</ul>
+				</div>
+
+				<p class="price-caption reveal">※ 価格はすべて税別です。AIツールの利用料は含みません(無料プランでも制作できます)。内容はご相談に応じて調整できます。まずは無料相談でご希望をお聞かせください。</p>
+			</div>
+		</section>
+
+		<!-- よくある質問 (JSON-LDのFAQPageと内容を一致させる) -->
+		<section class="section section-faq" id="faq" aria-labelledby="faq-title">
+			<div class="container">
+				<p class="section-eyebrow reveal">FAQ</p>
+				<h2 class="section-title reveal" id="faq-title">よくある質問</h2>
+
+				<div class="faq-list">
+					<details class="faq-item reveal">
+						<summary><span class="faq-q" aria-hidden="true">Q</span>プログラミングもゲームづくりも未経験ですが、本当に自分でつくれますか？</summary>
+						<p><span class="faq-a" aria-hidden="true">A</span>はい、つくれます。コードは1行も書きません。AIに日本語で話しかけながらつくっていきます。実際に、ゲーム制作経験ゼロの52歳のお母さまが、AIとの対話だけで約4時間で歴史ゲームを完成させ、11歳の息子さんの誕生日当日にプレゼントした実例があります。</p>
+					</details>
+					<details class="faq-item reveal">
+						<summary><span class="faq-q" aria-hidden="true">Q</span>マザリアルがゲームをつくってくれるのですか？</summary>
+						<p><span class="faq-a" aria-hidden="true">A</span>いいえ。つくるのは親御さまご自身です。マザリアルは、お子さまの「好き」の聞き出し方の設計、AIへの伝え方、つまずいたときの助け舟など、完成までの伴走役に徹します。「自分がつくった」という実感ごと、お子さまに贈っていただくためです。</p>
+					</details>
+					<details class="faq-item reveal">
+						<summary><span class="faq-q" aria-hidden="true">Q</span>何を用意すればいいですか？</summary>
+						<p><span class="faq-a" aria-hidden="true">A</span>パソコン(またはタブレット)と、対話型AIのアカウント、そしてお子さまの「好き」の情報だけです。AIアカウントの作成から丁寧にご案内しますので、AIを使ったことがなくても大丈夫です。</p>
+					</details>
+					<details class="faq-item reveal">
+						<summary><span class="faq-q" aria-hidden="true">Q</span>完成までどのくらいかかりますか？</summary>
+						<p><span class="faq-a" aria-hidden="true">A</span>題材と構成が決まっていれば、最短でその日のうちに完成します。多くの方は、ヒアリング設計と伴走セッション1〜2回(合計3〜5時間ほど)で完成しています。誕生日など渡したい日が決まっている場合は、1〜2週間前のご相談がおすすめです。</p>
+					</details>
+					<details class="faq-item reveal">
+						<summary><span class="faq-q" aria-hidden="true">Q</span>子どもに内緒で準備できますか？</summary>
+						<p><span class="faq-a" aria-hidden="true">A</span>できます。お子さまへのヒアリングは「最近なにが一番おもしろい？」といった自然な会話でできるよう、質問の仕方から一緒に設計します。サプライズでのお渡しにも対応した進め方をご案内します。</p>
+					</details>
+					<details class="faq-item reveal">
+						<summary><span class="faq-q" aria-hidden="true">Q</span>できあがったゲームはどうやって子どもに渡せますか？</summary>
+						<p><span class="faq-a" aria-hidden="true">A</span>スマートフォンやパソコンのブラウザで開くだけで遊べる形でつくります。アプリのインストールは不要です。URLを共有すれば、おじいちゃんおばあちゃんやお友だちにも遊んでもらえます。</p>
+					</details>
+				</div>
+			</div>
+		</section>
+
+		<!-- CTA / お問い合わせ ※フォームはContact Form 7等に置き換え可 -->
+		<section class="section section-contact" id="contact" aria-labelledby="contact-title">
+			<div class="container">
+				<div class="contact-window reveal">
+					<div class="window-titlebar"><span>■ さいごのとびら ■</span></div>
+					<div class="window-body contact-body">
+						<h2 id="contact-title" class="contact-title">その冒険の作者は、<br>あなたです。</h2>
+						<p class="contact-lead">
+							「うちの子の『好き』なら、どんなゲームになるだろう？」<br>
+							そう思った今が、クエストのはじまり。<br>
+							相談は無料です。売り込みは、しません。
+						</p>
+						<a href="https://mazareal.co.jp/contact/" class="btn btn-primary btn-large pulse">
+							<span class="blink" aria-hidden="true">▶</span> 無料でそうだんする
+						</a>
+						<p class="contact-note">お問い合わせフォームが開きます(24時間受付)</p>
+					</div>
+				</div>
+			</div>
+		</section>
+	</main>
+
+	<!-- フッター -->
+	<footer class="site-footer">
+		<div class="container footer-inner">
+			<p class="footer-brand"><span aria-hidden="true">■</span> 株式会社マザリアル</p>
+			<p class="footer-vision">コドモゴコロに火をつける。空想と現実の、まざる場所。</p>
+			<nav aria-label="フッターメニュー">
+				<ul class="footer-nav">
+					<li><a href="https://mazareal.co.jp/">会社トップ</a></li>
+					<li><a href="https://mazareal.co.jp/contact/">お問い合わせ</a></li>
+				</ul>
+			</nav>
+			<p class="footer-copy"><small>&copy; MAZAREAL Inc. All Rights Reserved.</small></p>
+		</div>
+	</footer>
+
+<?php wp_footer(); ?>
+</body>
+</html>

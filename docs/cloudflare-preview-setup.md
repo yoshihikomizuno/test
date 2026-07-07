@@ -14,7 +14,7 @@
 | Worker 名 | `test` |
 | ベースURL（一覧） | **https://test.mazareal.workers.dev/** |
 | 各案件のURL | `https://test.mazareal.workers.dev/<フォルダ名>/` |
-| 例：うちの子クエスト | https://test.mazareal.workers.dev/mazareal-kids-game/ |
+| 例：おやこクエスト | https://test.mazareal.workers.dev/mazareal-kids-game/ |
 | 公開/非公開 | **既定はすべて公開**。非公開にしたいフォルダだけ Cloudflare Access（パス単位）でサインイン必須にする |
 | 非公開時の許可メール | `3aidmz@gmail.com` ／ `@mazareal.co.jp`（Zero Trust → Access で管理） |
 
