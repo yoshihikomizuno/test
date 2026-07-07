@@ -1,19 +1,56 @@
+<?php
+/**
+ * Template Name: おやこクエスト LP
+ *
+ * 「おやこクエスト」サービス紹介ページ用の固定ページテンプレート。
+ * 管理画面の固定ページ（空白ページ・スラッグ「oyako-quest」/ URL: https://mazareal.co.jp/oyako-quest/）に
+ * このテンプレートを割り当てて公開する。
+ *
+ * 配置先   : 有効化中テーマ（子テーマがあれば子テーマ）のフォルダ直下
+ * 必要ファイル: 同じテーマフォルダ内の oyako-quest-assets/ 一式
+ *   oyako-quest-assets/
+ *   ├── css/style.css
+ *   ├── js/main.js
+ *   ├── img/icon-passion.svg
+ *   ├── img/icon-gift.svg
+ *   ├── img/icon-magic.svg
+ *   └── img/ogp.png
+ *   ※ローカルの mazareal-kids-game/ の css・js・img を、そのまま oyako-quest-assets/ にコピーすればよい。
+ *
+ * - CSS / JS / 画像はテーマフォルダ基準の相対パス（get_stylesheet_directory_uri）で読み込む。
+ *   ※ページの表示URLは /oyako-quest/ なので、素の相対パス（href="css/...")だと
+ *     /oyako-quest/css/... を見に行って読み込めない。必ずこの関数で出力すること。
+ * - テーマのヘッダー/フッター（get_header / get_footer）は使わず自己完結で出力するが、
+ *   プラグインが動くよう wp_head() / wp_footer() は必ず残す。
+ * - favicon はサイト共通の /favicon.ico を使用（テーマの header.php と同じ指定）。
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+  exit;
+}
+
+$oq_assets = get_stylesheet_directory_uri() . '/oyako-quest-assets';
+?>
 <!DOCTYPE html>
-<html lang="ja">
+<html <?php language_attributes(); ?>>
 <head>
-  <meta charset="UTF-8">
+  <meta charset="<?php bloginfo( 'charset' ); ?>">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- ============================================================
-       SEO / AIO メタ情報
-       ※ WordPress移行時: SEOプラグイン(Yoast等)側で管理する場合は
-         このブロックをプラグイン設定に転記してください
-  ============================================================ -->
+  <?php
+  /*
+    ▼ タイトル・メタ情報について
+    下記の <title> と meta はページ専用に固定で記述している。
+    もしテーマが title-tag をサポートしていたり、SEOプラグイン（Yoast / All in One SEO 等）を
+    入れている場合、タイトルやディスクリプションが二重に出力されることがある。
+    その場合は下のハードコード分を削り、固定ページ編集画面 or SEOプラグイン側で設定すること。
+    同様に、下の JSON-LD 構造化データも SEOプラグインと重複しないよう注意する。
+  */
+  ?>
   <title>おやこクエスト｜親がAIで、わが子にオリジナルゲームをつくって贈る伴走サービス - 株式会社マザリアル</title>
   <meta name="description" content="「おやこクエスト」は、プログラミング経験ゼロの親御さまが、AIとの対話だけで、お子さまの「好き」を題材にしたオリジナルゲームを自分の手でつくれるように伴走するサービスです。制作代行ではありません。つくるのは、あなた。マザリアルは隣でサポートします。誕生日や記念日の贈り物に。">
   <link rel="canonical" href="https://mazareal.co.jp/oyako-quest/">
-  <!-- favicon: マザリアル本サイトと共通 (WordPress組み込み時は /favicon.ico になる) -->
-  <link rel="icon" href="https://mazareal.co.jp/favicon.ico" type="image/vnd.microsoft.icon">
+  <link rel="icon" href="/favicon.ico" type="image/vnd.microsoft.icon">
 
   <!-- OGP -->
   <meta property="og:type" content="website">
@@ -21,22 +58,18 @@
   <meta property="og:title" content="おやこクエスト｜親がAIで、わが子にオリジナルゲームをつくって贈る伴走サービス">
   <meta property="og:description" content="プログラミング経験ゼロでも、AIとの対話だけで、わが子の「好き」を題材にしたゲームがつくれる。つくるのは、あなた。マザリアルは隣で伴走します。">
   <meta property="og:url" content="https://mazareal.co.jp/oyako-quest/">
+  <meta property="og:image" content="<?php echo esc_url( $oq_assets . '/img/ogp.png' ); ?>">
   <meta property="og:locale" content="ja_JP">
-  <!-- ※ OGP画像はWordPress移行時にアップロードしたURLへ差し替えてください -->
-  <meta property="og:image" content="https://mazareal.co.jp/oyako-quest/ogp.png">
   <meta name="twitter:card" content="summary_large_image">
 
-  <!-- フォント: 見出し=ドット絵風 / 本文=丸ゴシック -->
+  <!-- Fonts: 見出し=ドット絵風 / 本文=丸ゴシック -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="<?php echo esc_url( $oq_assets . '/css/style.css' ); ?>">
 
-  <!-- ============================================================
-       構造化データ (JSON-LD)
-       検索エンジン・AI(AIO)がページ内容を正確に理解するための情報
-  ============================================================ -->
+  <!-- 構造化データ（SEO/AIO） -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -126,16 +159,16 @@
     ]
   }
   </script>
-</head>
 
-<body>
+  <?php wp_head(); ?>
+</head>
+<body <?php body_class( 'page-oyako-quest' ); ?>>
+<?php wp_body_open(); ?>
+
   <!-- スクロール進行ゲージ(経験値バー風) -->
   <div class="xp-progress" aria-hidden="true"><span id="xpBar"></span></div>
 
-  <!-- ============================================================
-       ヘッダー
-       ※ WordPress移行時: header.php に相当する部分
-  ============================================================ -->
+  <!-- ヘッダー -->
   <header class="site-header" id="siteHeader">
     <div class="header-inner">
       <a href="https://mazareal.co.jp/" class="brand" aria-label="株式会社マザリアル ホームへ">
@@ -157,9 +190,7 @@
   </header>
 
   <main>
-    <!-- ============================================================
-         ヒーロー: 夜空×ドット絵の冒険ステージ
-    ============================================================ -->
+    <!-- ヒーロー: 夜空×ドット絵の冒険ステージ -->
     <section class="hero" aria-label="おやこクエスト メインビジュアル">
       <div class="hero-sky" aria-hidden="true">
         <div class="stars stars-1"></div>
@@ -202,9 +233,7 @@
       <p class="hero-scroll-hint" aria-hidden="true">▼ SCROLL ▼</p>
     </section>
 
-    <!-- ============================================================
-         サービス概要 (AIO対策: 冒頭で「何のサービスか」を明快に定義)
-    ============================================================ -->
+    <!-- サービス概要 -->
     <section class="section section-about" id="about" aria-labelledby="about-title">
       <div class="container">
         <p class="section-eyebrow reveal">ABOUT</p>
@@ -238,9 +267,7 @@
       </div>
     </section>
 
-    <!-- ============================================================
-         実話: きっかけになったストーリー
-    ============================================================ -->
+    <!-- 実話 -->
     <section class="section section-story" id="story" aria-labelledby="story-title">
       <div class="container">
         <p class="section-eyebrow reveal">TRUE STORY</p>
@@ -299,9 +326,7 @@
       </div>
     </section>
 
-    <!-- ============================================================
-         共感パート: こんな気持ち、ありませんか
-    ============================================================ -->
+    <!-- 共感パート -->
     <section class="section section-empathy" aria-labelledby="empathy-title">
       <div class="container">
         <p class="section-eyebrow reveal">WHY</p>
@@ -309,17 +334,17 @@
 
         <ul class="empathy-list">
           <li class="empathy-card reveal">
-            <img class="empathy-icon" src="img/icon-passion.svg" alt="" width="112" height="112" loading="lazy">
+            <img class="empathy-icon" src="<?php echo esc_url( $oq_assets . '/img/icon-passion.svg' ); ?>" alt="" width="112" height="112" loading="lazy">
             <h3>好きすぎて、<br>孤独になっている子へ</h3>
             <p>電車、恐竜、歴史、宇宙……熱量が高すぎて、同じ温度で話せる友だちがいない。その「好き」を、みんなが楽しめるかたちにしてあげたい。</p>
           </li>
           <li class="empathy-card reveal">
-            <img class="empathy-icon" src="img/icon-gift.svg" alt="" width="112" height="112" loading="lazy">
+            <img class="empathy-icon" src="<?php echo esc_url( $oq_assets . '/img/icon-gift.svg' ); ?>" alt="" width="112" height="112" loading="lazy">
             <h3>モノより、<br>「わかってくれた」を贈りたい</h3>
             <p>おもちゃはすぐ飽きる。それより「お母さん(お父さん)は、ぼくの好きを本気でわかろうとしてくれた」という記憶を残したい。</p>
           </li>
           <li class="empathy-card reveal">
-            <img class="empathy-icon" src="img/icon-magic.svg" alt="" width="112" height="112" loading="lazy">
+            <img class="empathy-icon" src="<?php echo esc_url( $oq_assets . '/img/icon-magic.svg' ); ?>" alt="" width="112" height="112" loading="lazy">
             <h3>私自身も、<br>AIを使えるようになりたい</h3>
             <p>仕事でもAIの波は来ている。どうせ学ぶなら、講座を10回聞くより、大切な誰かのために1本つくるほうが、身につくし楽しい。</p>
           </li>
@@ -331,9 +356,7 @@
       </div>
     </section>
 
-    <!-- ============================================================
-         特徴
-    ============================================================ -->
+    <!-- 特徴 -->
     <section class="section section-features" id="features" aria-labelledby="features-title">
       <div class="container">
         <p class="section-eyebrow reveal">FEATURES</p>
@@ -374,9 +397,7 @@
       </div>
     </section>
 
-    <!-- ============================================================
-         利用シーン
-    ============================================================ -->
+    <!-- 利用シーン -->
     <section class="section section-scenes" aria-labelledby="scenes-title">
       <div class="container">
         <p class="section-eyebrow reveal">SCENES</p>
@@ -392,9 +413,7 @@
       </div>
     </section>
 
-    <!-- ============================================================
-         制作の流れ
-    ============================================================ -->
+    <!-- 制作の流れ -->
     <section class="section section-flow" id="flow" aria-labelledby="flow-title">
       <div class="container">
         <p class="section-eyebrow reveal">FLOW</p>
@@ -426,10 +445,7 @@
       </div>
     </section>
 
-    <!-- ============================================================
-         料金プラン
-         ※ 価格は仮の参考価格です。公開前に正式価格へ差し替えてください
-    ============================================================ -->
+    <!-- 料金プラン ※価格は仮の参考価格です。公開前に正式価格へ差し替えてください -->
     <section class="section section-price" id="price" aria-labelledby="price-title">
       <div class="container">
         <p class="section-eyebrow reveal">PRICE</p>
@@ -489,9 +505,7 @@
       </div>
     </section>
 
-    <!-- ============================================================
-         よくある質問 (FAQ: AIO対策の要。JSON-LDのFAQPageと内容を一致させる)
-    ============================================================ -->
+    <!-- よくある質問 (JSON-LDのFAQPageと内容を一致させる) -->
     <section class="section section-faq" id="faq" aria-labelledby="faq-title">
       <div class="container">
         <p class="section-eyebrow reveal">FAQ</p>
@@ -526,10 +540,7 @@
       </div>
     </section>
 
-    <!-- ============================================================
-         CTA / お問い合わせ
-         ※ WordPress移行時: フォームはContact Form 7等に置き換え
-    ============================================================ -->
+    <!-- CTA / お問い合わせ ※フォームはContact Form 7等に置き換え可 -->
     <section class="section section-contact" id="contact" aria-labelledby="contact-title">
       <div class="container">
         <div class="contact-window reveal">
@@ -551,10 +562,7 @@
     </section>
   </main>
 
-  <!-- ============================================================
-       フッター
-       ※ WordPress移行時: footer.php に相当する部分
-  ============================================================ -->
+  <!-- フッター -->
   <footer class="site-footer">
     <div class="container footer-inner">
       <p class="footer-brand"><span aria-hidden="true">■</span> 株式会社マザリアル</p>
@@ -569,6 +577,8 @@
     </div>
   </footer>
 
-  <script src="js/main.js"></script>
+  <script src="<?php echo esc_url( $oq_assets . '/js/main.js' ); ?>" defer></script>
+
+  <?php wp_footer(); ?>
 </body>
 </html>

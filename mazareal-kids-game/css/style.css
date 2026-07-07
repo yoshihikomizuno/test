@@ -889,3 +889,6 @@ em { font-style: normal; }
   html { scroll-behavior: auto; }
   .reveal { opacity: 1; transform: none; }
 }
+
+/*reCaptchaバッジを非表示*/
+.grecaptcha-badge { visibility: hidden; }
